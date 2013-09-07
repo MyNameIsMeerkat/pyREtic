@@ -1,0 +1,212 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>liveUnPYC &mdash; pyREtic v5 documentation</title>
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '5',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pyREtic v5 documentation" href="index.html" />
+    <link rel="prev" title="REpdb" href="REpdb.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="REpdb.html" title="REpdb"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">pyREtic v5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-liveUnPYC">
+<span id="liveunpyc"></span><h1>liveUnPYC<a class="headerlink" href="#module-liveUnPYC" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="liveUnPYC.CoParser">
+<em class="property">class </em><tt class="descclassname">liveUnPYC.</tt><tt class="descname">CoParser</tt><big>(</big><em>code_obj</em>, <em>verboseDisasm=False</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#CoParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.CoParser" title="Permalink to this definition">¶</a></dt>
+<dd><p>An equivilent to the Parser class in the parse module where rather than
+parsing marshalled code objects we parse a raw code object.
+The result being the creation of a PyCode object that UnPYC can
+then do it&#8217;s magic on</p>
+<dl class="method">
+<dt id="liveUnPYC.CoParser.r_tuple">
+<tt class="descname">r_tuple</tt><big>(</big><em>obj</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#CoParser.r_tuple"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.CoParser.r_tuple" title="Permalink to this definition">¶</a></dt>
+<dd><p>Construct a PyTuple object from an existing tuple with each member
+being set as a valid Py* type as well, so e.g. a PyTuple of
+PyStrings</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="liveUnPYC.liveUnPYC">
+<em class="property">class </em><tt class="descclassname">liveUnPYC.</tt><tt class="descname">liveUnPYC</tt><big>(</big><em>pyretic</em>, <em>top_level_module=None</em>, <em>verbose=True</em>, <em>debug=True</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#liveUnPYC"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.liveUnPYC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Traverse an object either in memory or from filesystem
+and decompile back to source through accessing code objects
+rather than .pyc files</p>
+<p>Relies on the UnPyc decompiler: <a class="reference external" href="http://unpyc.sourceforge.net/">http://unpyc.sourceforge.net/</a></p>
+<dl class="docutils">
+<dt>top_level_object - the object that will be treated as parent, anything</dt>
+<dd><blockquote class="first">
+not parented by this module will not be traversed
+stops you diving down rabbit holes with 
+&#8216;from foo import <a href="#id1"><span class="problematic" id="id2">*</span></a>&#8216;</blockquote>
+<p class="last">Leave as None is you want to recurse</p>
+</dd>
+</dl>
+<dl class="method">
+<dt id="liveUnPYC.liveUnPYC.fs_decompile">
+<tt class="descname">fs_decompile</tt><big>(</big><em>mod_name</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#liveUnPYC.fs_decompile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.liveUnPYC.fs_decompile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take an obfuscated .pyc file and decompile by grabbing the bytecode
+and unmarshaling with the obfuscating Python runtimes own marshalling code</p>
+<p>The opcode remapping must already have taken place</p>
+<p>If you have access to to files/filesystem and the runtime allows you
+access to it&#8217;s marshaller module use this, you will get the best output</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="liveUnPYC.liveUnPYC.get_args">
+<tt class="descname">get_args</tt><big>(</big><em>obj</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#liveUnPYC.get_args"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.liveUnPYC.get_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>get the argument spec for a function / method</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="liveUnPYC.liveUnPYC.get_class">
+<tt class="descname">get_class</tt><big>(</big><em>obj</em>, <em>indent</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#liveUnPYC.get_class"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.liveUnPYC.get_class" title="Permalink to this definition">¶</a></dt>
+<dd><p>Breaks a class into it&#8217;s consituents: variables, functions etc</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="liveUnPYC.liveUnPYC.get_doc">
+<tt class="descname">get_doc</tt><big>(</big><em>obj</em>, <em>indent</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#liveUnPYC.get_doc"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.liveUnPYC.get_doc" title="Permalink to this definition">¶</a></dt>
+<dd><p>My get doc function - wraps the inspect modules getdoc
+but adds in indentation and triple quotes so we can drop into
+a code listing</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="liveUnPYC.liveUnPYC.get_func">
+<tt class="descname">get_func</tt><big>(</big><em>obj</em>, <em>indent</em>, <em>identity=''</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#liveUnPYC.get_func"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.liveUnPYC.get_func" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decompiles an instantiated Python function object from</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="liveUnPYC.liveUnPYC.get_generator">
+<tt class="descname">get_generator</tt><big>(</big><em>obj</em>, <em>indent</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#liveUnPYC.get_generator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.liveUnPYC.get_generator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decompiles a generator object</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="liveUnPYC.liveUnPYC.get_instances">
+<tt class="descname">get_instances</tt><big>(</big><em>obj</em>, <em>indent</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#liveUnPYC.get_instances"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.liveUnPYC.get_instances" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get all top level instances into a usable string form, do not show builtins etc</p>
+<p><a class="reference external" href="http://docs.python.org/reference/datamodel.html">http://docs.python.org/reference/datamodel.html</a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="liveUnPYC.liveUnPYC.get_method">
+<tt class="descname">get_method</tt><big>(</big><em>obj</em>, <em>indent</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#liveUnPYC.get_method"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.liveUnPYC.get_method" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get access to the function object in a method</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="liveUnPYC.liveUnPYC.get_py">
+<tt class="descname">get_py</tt><big>(</big><em>obj</em>, <em>indent=0</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#liveUnPYC.get_py"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.liveUnPYC.get_py" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determine the type of python object that has been passed and 
+as appropriate call a sub function to access the code object
+and decompile that back to source</p>
+<p>Called recursively</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="liveUnPYC.liveUnPYC.mem_decompile">
+<tt class="descname">mem_decompile</tt><big>(</big><em>obj</em><big>)</big><a class="reference internal" href="_modules/liveUnPYC.html#liveUnPYC.mem_decompile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#liveUnPYC.liveUnPYC.mem_decompile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take an object &amp; interogate it, do both decompilation of code objects
+and source code reconstruction from live interactive querying</p>
+<p>obj - Python object to interogate for decompilation back to source</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="REpdb.html"
+                        title="previous chapter">REpdb</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/liveUnPYC.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="REpdb.html" title="REpdb"
+             >previous</a> |</li>
+        <li><a href="index.html">pyREtic v5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Rich Smith.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.5.
+    </div>
+  </body>
+</html>

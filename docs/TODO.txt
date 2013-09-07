@@ -1,0 +1,10 @@
+pyREtic TODO
+============
+
+Lots still to do and neaten up code wise
+
+Patch all of the changes I made to my version of unpyc back into the version of unpyc pyretic uses and send the tested patches to the unpyc dev
+
+Creation of a bytecode oracle so as 100% bytecode remapping is assured
+
+etc etc

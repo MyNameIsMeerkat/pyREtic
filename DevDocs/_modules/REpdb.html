@@ -1,0 +1,1329 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>REpdb &mdash; pyREtic v5 documentation</title>
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '5',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="pyREtic v5 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">pyREtic v5 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for REpdb</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/env python</span>
+<span class="c">##WingHeader v1 </span>
+<span class="c">###############################################################################</span>
+<span class="c">## File       :  REpdb.py</span>
+<span class="c">## Description:  pyREtic extensions to the standard Python debugger (pdb)</span>
+<span class="c">##            :  focussing on use for reverse engineering bytecode/vuln hunting</span>
+<span class="c">## Created_On :  Tue Aug  3 20:24:32 2010</span>
+<span class="c">## Created_By :  Rich Smith</span>
+<span class="c">## Modified_On:  Mon Dec  6 12:12:03 2010</span>
+<span class="c">## Modified_By:  Rich Smith</span>
+<span class="c">## License    :  GPLv3 (Docs/LICENSE.txt)</span>
+<span class="c">##</span>
+<span class="c">## (c) Copyright 2010, Rich Smith all rights reserved.</span>
+<span class="c">###############################################################################</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s">&quot;Rich Smith&quot;</span>
+<span class="n">__version__</span><span class="o">=</span> <span class="s">&quot;0.5&quot;</span>
+
+<span class="c">##Use libs we control in preference to the packed runtime&#39;s</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">os.path</span>
+<span class="c">##Allows easy relative writes to the location this dir later</span>
+<span class="n">MODULE_LOCATION</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">)</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_LOCATION</span><span class="p">,</span> <span class="s">&quot;Projects&quot;</span><span class="p">,</span> <span class="s">&quot;default&quot;</span><span class="p">,</span> <span class="s">&quot;libs&quot;</span><span class="p">)]</span> <span class="o">+</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span>
+
+<span class="c">##Imports</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pdb</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">struct</span>
+<span class="kn">import</span> <span class="nn">atexit</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">import</span> <span class="nn">tarfile</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+
+
+<span class="c">##Third party imports for extra functionality in the debugger context</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">ThirdParty</span> <span class="kn">import</span> <span class="n">pycallgraph</span>
+    <span class="n">CAN_CALLGRAPH</span> <span class="o">=</span> <span class="bp">True</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="n">CAN_CALLGRAPH</span> <span class="o">=</span> <span class="bp">False</span>
+
+<span class="c">#TODO - CONFIG FILE WITH ALL THIS STUFF IN &amp; make OS specific</span>
+<span class="n">RUNTIME_LOCATION</span> <span class="o">=</span> <span class="p">{</span><span class="s">&quot;2.4&quot;</span> <span class="p">:</span> <span class="s">&quot;/usr/bin/python2.4&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;2.5&quot;</span> <span class="p">:</span> <span class="s">&quot;/usr/bin/python2.5&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;2.6&quot;</span> <span class="p">:</span> <span class="s">&quot;/usr/bin/python2.6&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;2.7&quot;</span> <span class="p">:</span> <span class="s">&quot;/usr/bin/python2.7&quot;</span>
+                    <span class="p">}</span>
+
+<span class="c">##pyREtic modules</span>
+<span class="kn">import</span> <span class="nn">pyREtic</span>
+
+<div class="viewcode-block" id="RePdb"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb">[docs]</a><span class="k">class</span> <span class="nc">RePdb</span><span class="p">(</span><span class="n">pdb</span><span class="o">.</span><span class="n">Pdb</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extended pdb debugger with functionality useful when reverse engineering</span>
+<span class="sd">    Python .pyc/.pyo files without the .py source </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">completekey</span><span class="o">=</span><span class="s">&#39;tab&#39;</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+        <span class="c">##initiate Pdb</span>
+        <span class="n">pdb</span><span class="o">.</span><span class="n">Pdb</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">completekey</span><span class="p">,</span> <span class="n">stdin</span><span class="p">,</span> <span class="n">stdout</span><span class="p">)</span>
+
+        <span class="k">global</span> <span class="n">MODULE_LOCATION</span>
+
+        <span class="c">##Locations of reference/obfuscated .pyb&#39;s</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ref_pyb</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">obf_pyb</span> <span class="o">=</span> <span class="bp">None</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">runtime_version</span> <span class="o">=</span> <span class="s">&quot;default&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span> <span class="o">=</span> <span class="n">pyREtic</span><span class="o">.</span><span class="n">pyREtic</span><span class="p">()</span>
+
+        <span class="c">##Get default project name from pyREtic</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">projectdir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectroot</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">ref_pyb_generated</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">callgraph_started</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cg_exclude</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;pycallgraph.*&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_module_restore</span> <span class="o">=</span> <span class="bp">False</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">runtime_remapped</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remap_complete</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">prompt</span> <span class="o">=</span> <span class="s">&#39;(REpdb:</span><span class="si">%s</span><span class="s">) &#39;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project</span><span class="p">())</span>
+        
+        <span class="k">print</span> <span class="s">&quot;</span><span class="se">\n</span><span class="si">%s</span><span class="se">\n</span><span class="s">REpdb is part of the pyREtic toolkit. </span><span class="si">%s</span><span class="s"> 2010</span><span class="se">\n</span><span class="si">%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="s">&quot;=&quot;</span><span class="o">*</span><span class="mi">53</span><span class="p">,</span> <span class="n">__author__</span><span class="p">,</span> <span class="s">&quot;=&quot;</span><span class="o">*</span><span class="mi">53</span><span class="p">)</span>    
+    
+        
+    <span class="k">def</span> <span class="nf">__reload_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function reloads all the modules in the libs dir of the project that</span>
+<span class="sd">        has been switched to + some other modules that require it. </span>
+<span class="sd">        </span>
+<span class="sd">        *Don&#39;t mess with this as it can introduce subtle bugs that are annoying to debug*</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">##Ordered reload</span>
+        <span class="n">must_reload</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;opcode&quot;</span><span class="p">,</span> <span class="s">&quot;dis&quot;</span><span class="p">,</span> <span class="s">&quot;opcodes&quot;</span><span class="p">]</span>
+     
+        <span class="k">for</span> <span class="n">mr</span> <span class="ow">in</span> <span class="n">must_reload</span><span class="p">:</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">exec</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%s</span><span class="s"> = reload(</span><span class="si">%s</span><span class="s">)&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">mr</span><span class="p">,</span> <span class="n">mr</span><span class="p">))</span>
+                <span class="c">#print &quot;[+] Reloaded &#39;%s&#39;&quot;%(mr)</span>
+                
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+                <span class="c">#print &quot;[-] Problem reloading &#39;%s&#39; : %s&quot;%(mr, err)</span>
+                <span class="k">pass</span>
+        
+        <span class="c">##Unordered reload</span>
+        <span class="n">lib_modules</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project_mod_dir</span><span class="p">())</span>
+        
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">lib_modules</span><span class="p">:</span>
+            
+            <span class="k">if</span> <span class="n">m</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">must_reload</span> <span class="ow">and</span> <span class="n">m</span> <span class="o">!=</span> <span class="s">&quot;__init__.py&quot;</span><span class="p">:</span>
+                
+                <span class="n">mod_name</span><span class="p">,</span> <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+                
+                <span class="k">if</span> <span class="n">ext</span> <span class="o">!=</span> <span class="s">&quot;.py&quot;</span><span class="p">:</span>
+                    <span class="c">#print &quot;[-] none .py &#39;%s&#39; in project directory, skipping&quot;%(m)</span>
+                    <span class="k">continue</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">exec</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%s</span><span class="s"> = reload(</span><span class="si">%s</span><span class="s">)&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">mod_name</span><span class="p">))</span>
+                    <span class="c">#395print &quot;[+] Reloaded &#39;%s&#39;&quot;%(mod_name)</span>
+                    
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+                    <span class="c">#print &quot;[-] Problem reloading &#39;%s&#39; : %s&quot;%(mod_name, err)</span>
+                    <span class="k">pass</span>
+                
+        
+<div class="viewcode-block" id="RePdb.do_show"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_show">[docs]</a>    <span class="k">def</span> <span class="nf">do_show</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Print out all the current settings for this REpdb project</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: show</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_is_remapped</span><span class="p">()</span>
+        
+        <span class="k">print</span> <span class="s">&quot;&quot;&quot;</span>
+<span class="s">        Current project name:        </span><span class="si">%s</span><span class="s"></span>
+<span class="s">        Current project directory:   </span><span class="si">%s</span><span class="s"></span>
+<span class="s">        Project runtime set as:      </span><span class="si">%s</span><span class="s">  </span>
+<span class="s">        </span>
+<span class="s">        Decompiler:                  </span><span class="si">%s</span><span class="s"></span>
+<span class="s">        </span>
+<span class="s">        Python paths:                </span><span class="si">%s</span><span class="s"></span>
+<span class="s">        </span>
+<span class="s">        Runtime opcode remapped:     </span><span class="si">%s</span><span class="s"></span>
+<span class="s">        </span>
+<span class="s">        Reference modules:           </span><span class="si">%s</span><span class="s"></span>
+<span class="s">        Obfuscated modules:          </span><span class="si">%s</span><span class="s"></span>
+<span class="s">        Remap done:                  </span><span class="si">%s</span><span class="s"></span>
+<span class="s">        </span>
+<span class="s">        Callgraph started:           </span><span class="si">%s</span><span class="s"></span>
+<span class="s">        </span>
+<span class="s">        Current runtime reported as: </span><span class="si">%s</span><span class="s"></span>
+<span class="s">          </span>
+<span class="s">        &quot;&quot;&quot;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_dump_dir</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime_version</span><span class="p">,</span>
+             <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">decompiler</span><span class="p">,</span> <span class="n">RUNTIME_LOCATION</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime_remapped</span><span class="p">,</span>
+             <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;pybs&quot;</span><span class="p">,</span> <span class="s">&quot;ref_pyb&quot;</span><span class="p">),</span> 
+             <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;pybs&quot;</span><span class="p">,</span> <span class="s">&quot;obj_pyb&quot;</span><span class="p">),</span>
+             <span class="bp">self</span><span class="o">.</span><span class="n">ref_pyb_generated</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">callgraph_started</span><span class="p">,</span> 
+             <span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="s">&quot;&quot;</span><span class="p">))</span>
+        
+        </div>
+<div class="viewcode-block" id="RePdb.remap_complete"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.remap_complete">[docs]</a>    <span class="k">def</span> <span class="nf">remap_complete</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For the current project has a re-mapped opcode table been generated, set var accordingly ?</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project_mod_dir</span><span class="p">(),</span> <span class="s">&quot;opcodes_remap.py&quot;</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ref_pyb_generated</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ref_pyb_generated</span> <span class="o">=</span> <span class="bp">False</span>
+            
+            
+    </div>
+<div class="viewcode-block" id="RePdb.do_is_remapped"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_is_remapped">[docs]</a>    <span class="k">def</span> <span class="nf">do_is_remapped</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Determine if the current runtime has remapped its opcode table</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: is_remapped</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">##Code to compile</span>
+        <span class="n">test_py</span> <span class="o">=</span> <span class="s">&quot;print &#39;Am I remapped?&#39;&quot;</span>
+        <span class="c">##The bytecode that should be produced if the runtime is NOT remapped</span>
+        <span class="n">expected_bc</span> <span class="o">=</span> <span class="s">&quot;</span><span class="se">\x64\x00\x00\x47\x48\x64\x01\x00\x53</span><span class="s">&quot;</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">current_bc</span> <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="n">test_py</span><span class="p">,</span> <span class="s">&quot;&lt;pyREtic test&gt;&quot;</span><span class="p">,</span> <span class="s">&quot;exec&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem compiling bytecode: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+            <span class="k">print</span> <span class="s">&quot;[?] Runtime may have been modified to mess with the compile() function ?&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runtime_remapped</span> <span class="o">=</span> <span class="bp">True</span>
+            
+        <span class="k">if</span> <span class="n">expected_bc</span> <span class="o">!=</span> <span class="n">current_bc</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[!] Runtime appears to be opcode remapped&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runtime_remapped</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[=] Runtime prodcued expected bytecode it doesn&#39;t seem to be remapped&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runtime_remapped</span> <span class="o">=</span> <span class="bp">False</span>
+        
+        </div>
+<div class="viewcode-block" id="RePdb.do_set_version"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_set_version">[docs]</a>    <span class="k">def</span> <span class="nf">do_set_version</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">version</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set the version number of the runtime we are running in to a specific value</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: set_version 2.5.4</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">version</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] No version given to set&quot;</span>
+            
+        <span class="bp">self</span><span class="o">.</span><span class="n">runtime_version</span> <span class="o">=</span> <span class="n">version</span>
+        
+        <span class="c">#TODO - set correct libs for project ?</span>
+        
+        <span class="k">print</span> <span class="s">&quot;[+] Python version set as: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">version</span><span class="p">)</span>
+        
+        </div>
+    <span class="k">def</span> <span class="nf">_autodetect_version</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">always_prompt</span> <span class="o">=</span> <span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Interrogate the runtime 3 different ways to try and get an idea of what </span>
+<span class="sd">        the running python&#39;s version is</span>
+
+<span class="sd">        Prompts user for their choice</span>
+<span class="sd">        </span>
+<span class="sd">        returns the version as a string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">choices</span> <span class="o">=</span> <span class="p">[]</span>
+        
+        <span class="c">##Get the version according to the builtin sys module</span>
+        <span class="c">##Derived from PY_VERSION defined in patchlevel.h</span>
+        <span class="n">sys_mod_ver</span>      <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c">##Derived from PY_MAJOR_VERSION, PY_MINOR_VERSION, PY_MICRO_VERSION defined in patchlevel.h</span>
+        <span class="n">sys_mod_ver_info</span> <span class="o">=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        
+        <span class="k">print</span> <span class="s">&quot;[=] sys.version reports version: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">sys_mod_ver</span><span class="p">)</span>
+        <span class="k">print</span> <span class="s">&quot;[=] sys.version_info reports version: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">sys_mod_ver_info</span><span class="p">)</span>
+        
+        <span class="n">choices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sys_mod_ver_info</span><span class="p">)</span>        
+        
+        <span class="c">##First compare - has to be an &#39;in&#39; compare as sys_mod_ver may not have a .0 micro version</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sys_mod_ver</span> <span class="ow">in</span> <span class="n">sys_mod_ver_info</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] sys.version does not match sys.version_info&quot;</span>
+            <span class="n">choices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sys_mod_ver</span><span class="p">)</span>
+        
+        <span class="c">##Get the magic number from a pyc</span>
+        <span class="n">magic_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_magic</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="n">magic_dict</span><span class="o">.</span><span class="n">has_key</span><span class="p">(</span><span class="bp">None</span><span class="p">):</span>
+            <span class="c">##A problem was encountered</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem when getting pyc magic&quot;</span>
+            <span class="k">print</span> <span class="s">&quot;[-] </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">magic_dict</span><span class="p">[</span><span class="bp">None</span><span class="p">])</span>
+            
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[=] pyc magic number reports version: </span><span class="si">%s</span><span class="s"> [magic: </span><span class="si">%s</span><span class="s">]&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">magic_dict</span><span class="o">.</span><span class="n">values</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="n">magic_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+            <span class="c">##Now compare sys.version to the magic byte version</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">magic_dict</span><span class="o">.</span><span class="n">values</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">sys_mod_ver_info</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[!] pyc magic does not match sys.version_info - *indication of obfuscation/opcode remapping*&quot;</span>
+                <span class="n">closest_ver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">closest</span><span class="p">(</span><span class="n">magic_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">known_magic</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+                <span class="k">print</span> <span class="s">&quot;[=] pyc magic value: </span><span class="si">%s</span><span class="s"> - closest value of a known runtime: </span><span class="si">%s</span><span class="s"> [magic: </span><span class="si">%s</span><span class="s">]&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">magic_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">known_magic</span><span class="p">[</span><span class="n">closest_ver</span><span class="p">],</span><span class="n">closest_ver</span><span class="p">)</span>
+                <span class="n">choices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">known_magic</span><span class="p">[</span><span class="n">closest_ver</span><span class="p">])</span>
+                
+        <span class="c">##If there were not discrepencies and always_prompt not set return version</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">choices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">always_prompt</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Python version detected as: </span><span class="si">%s</span><span class="s">. Setting...&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">return</span> <span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        
+        <span class="c">##Else promptt user to choose</span>
+        <span class="k">print</span> <span class="s">&quot;[=] Please chose which runtime version to set:&quot;</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">choices</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;</span><span class="se">\t</span><span class="s"> [</span><span class="si">%s</span><span class="s">] </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">choices</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">c</span><span class="p">),</span> <span class="n">c</span><span class="p">)</span>
+            
+        <span class="k">print</span> <span class="s">&quot;</span><span class="se">\t</span><span class="s"> [</span><span class="si">%s</span><span class="s">] Enter own version value to use&quot;</span><span class="o">%</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">choices</span><span class="p">))</span>
+            
+        <span class="n">user_choice</span> <span class="o">=</span> <span class="nb">raw_input</span><span class="p">(</span><span class="s">&quot;Enter number of version to use: &quot;</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">user_choice</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">choices</span><span class="p">)):</span>
+            <span class="n">own_ver</span> <span class="o">=</span> <span class="nb">raw_input</span><span class="p">(</span><span class="s">&quot;Please enter version to set (e.g. 2.5.4): &quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">own_ver</span>
+            
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">user_choice</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="ow">or</span> <span class="nb">int</span><span class="p">(</span><span class="n">user_choice</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">choices</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span> <span class="ow">or</span> <span class="nb">int</span><span class="p">(</span><span class="n">user_choice</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            
+            <span class="k">print</span> <span class="s">&quot;[-] Invalid choice entered: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">user_choice</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">choices</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">user_choice</span><span class="p">)]</span>
+                
+        
+<div class="viewcode-block" id="RePdb.do_detect_version"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_detect_version">[docs]</a>    <span class="k">def</span> <span class="nf">do_detect_version</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Try to determine the version of the running Python (the runtime we are injected into)</span>
+<span class="sd">        </span>
+<span class="sd">        If there is a mismatch between the different ways we can do this you will be prompted </span>
+<span class="sd">        to choose for yourself</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: detect_version</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">p_ver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_autodetect_version</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">p_ver</span><span class="p">:</span>
+            <span class="k">return</span>
+        
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">do_set_version</span><span class="p">(</span><span class="n">p_ver</span><span class="p">)</span>
+                
+            </div>
+<div class="viewcode-block" id="RePdb.closest"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.closest">[docs]</a>    <span class="k">def</span> <span class="nf">closest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For a list of integers and a given value find the list element it&#39;s closest to</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">min</span><span class="p">((</span><span class="nb">abs</span><span class="p">(</span><span class="n">target</span> <span class="o">-</span> <span class="n">i</span><span class="p">),</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">collection</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> 
+    
+        </div>
+    <span class="k">def</span> <span class="nf">_get_magic</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the &#39;magic number&#39; from the pyc file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">## Walk the sys.modules table until we get a file location of a loaded module</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">m</span><span class="p">:</span>
+                <span class="k">continue</span>
+            
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">path</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">__file__</span>
+                <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">path</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="s">&quot;.pyc&quot;</span><span class="p">,</span> <span class="s">&quot;.pyo&quot;</span><span class="p">]:</span>
+                    <span class="k">break</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="k">continue</span>
+            
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="bp">None</span> <span class="p">:</span> <span class="s">&quot;No pyc module could be found&quot;</span><span class="p">}</span>
+        
+        <span class="c">##Read the first 2 magic bytes</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">fo</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s">&quot;rb&quot;</span><span class="p">)</span>
+            <span class="n">magic</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span> <span class="s">&quot;&lt;H&quot;</span><span class="p">,</span> <span class="n">fo</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+            <span class="n">fo</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="bp">None</span> <span class="p">:</span> <span class="s">&quot;Error accessing &#39;</span><span class="si">%s</span><span class="s">&#39; : </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">err</span><span class="p">)}</span>
+        
+        <span class="c">##Compare to table of values derived from import.c</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">known_magic</span> <span class="o">=</span> <span class="p">{</span><span class="mi">20121</span><span class="p">:</span><span class="s">&quot;1.5&quot;</span><span class="p">,</span> <span class="c">#or 1.5.1 or 1.5.2</span>
+                       <span class="mi">50428</span><span class="p">:</span><span class="s">&quot;1.6&quot;</span><span class="p">,</span>
+                       <span class="mi">50823</span><span class="p">:</span><span class="s">&quot;2.0&quot;</span><span class="p">,</span> <span class="c">#or 2.0.1</span>
+                       <span class="mi">60202</span><span class="p">:</span><span class="s">&quot;2.1&quot;</span><span class="p">,</span> <span class="c">#or 2.1.1, 2.1.2</span>
+                       <span class="mi">60717</span><span class="p">:</span><span class="s">&quot;2.2&quot;</span><span class="p">,</span>
+                       <span class="mi">62011</span><span class="p">:</span><span class="s">&quot;2.3&quot;</span><span class="p">,</span>
+                       <span class="mi">62021</span><span class="p">:</span><span class="s">&quot;2.3&quot;</span><span class="p">,</span>
+                       <span class="mi">62041</span><span class="p">:</span><span class="s">&quot;2.4&quot;</span><span class="p">,</span>
+                       <span class="mi">62051</span><span class="p">:</span><span class="s">&quot;2.4&quot;</span><span class="p">,</span>
+                       <span class="mi">62061</span><span class="p">:</span><span class="s">&quot;2.4&quot;</span><span class="p">,</span>
+                       <span class="mi">62071</span><span class="p">:</span><span class="s">&quot;2.5&quot;</span><span class="p">,</span>
+                       <span class="mi">62081</span><span class="p">:</span><span class="s">&quot;2.5&quot;</span><span class="p">,</span>
+                       <span class="mi">62091</span><span class="p">:</span><span class="s">&quot;2.5&quot;</span><span class="p">,</span> 
+                       <span class="mi">62092</span><span class="p">:</span><span class="s">&quot;2.5&quot;</span><span class="p">,</span> 
+                       <span class="mi">62101</span><span class="p">:</span><span class="s">&quot;2.5&quot;</span><span class="p">,</span> 
+                       <span class="mi">62111</span><span class="p">:</span><span class="s">&quot;2.5&quot;</span><span class="p">,</span> 
+                       <span class="mi">62121</span><span class="p">:</span><span class="s">&quot;2.5&quot;</span><span class="p">,</span>             
+                       <span class="mi">62131</span><span class="p">:</span><span class="s">&quot;2.5&quot;</span><span class="p">,</span> 
+                       <span class="mi">62151</span><span class="p">:</span><span class="s">&quot;2.6&quot;</span><span class="p">,</span> 
+                       <span class="mi">62161</span><span class="p">:</span><span class="s">&quot;2.6&quot;</span><span class="p">,</span> 
+                       <span class="mi">62171</span><span class="p">:</span><span class="s">&quot;2.7&quot;</span><span class="p">,</span> 
+                       <span class="mi">62181</span><span class="p">:</span><span class="s">&quot;2.7&quot;</span><span class="p">,</span> 
+                       <span class="mi">62191</span><span class="p">:</span><span class="s">&quot;2.7&quot;</span><span class="p">,</span> 
+                       <span class="mi">62201</span><span class="p">:</span><span class="s">&quot;2.7&quot;</span><span class="p">,</span> 
+                       <span class="mi">62211</span><span class="p">:</span><span class="s">&quot;2.7&quot;</span><span class="p">}</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">pyc_ver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">known_magic</span><span class="p">[</span><span class="n">magic</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="c">##Unknown magic value - sign of obfuscation / remapping</span>
+            <span class="n">pyc_ver</span> <span class="o">=</span> <span class="s">&quot;unknown&quot;</span>
+            
+        <span class="k">return</span> <span class="p">{</span><span class="n">magic</span> <span class="p">:</span> <span class="n">pyc_ver</span><span class="p">}</span>
+            
+
+
+<div class="viewcode-block" id="RePdb.do_download_runtime"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_download_runtime">[docs]</a>    <span class="k">def</span> <span class="nf">do_download_runtime</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">version</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Download the specified Python runtime sourcecode from python.org and decompress it.</span>
+<span class="sd">        It is saved to the &#39;Downloaded_Runtimes&#39; subdir and shared between all projects</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: download_runtime 2.5.4</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">version</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] No Python version specified, cannot download&quot;</span>
+            <span class="k">return</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">py_ver_downloaded</span><span class="p">(</span><span class="n">version</span><span class="p">):</span>
+            <span class="k">print</span> <span class="s">&quot;[+] That version has already been downloaded, no need to redownload&quot;</span>
+            <span class="k">return</span>
+        
+        <span class="n">target</span> <span class="o">=</span> <span class="s">r&quot;http://www.python.org/ftp/python/</span><span class="si">%s</span><span class="s">/Python-</span><span class="si">%s</span><span class="s">.tar.bz2&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">version</span><span class="p">,</span> <span class="n">version</span><span class="p">)</span>
+        <span class="n">local</span>  <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_LOCATION</span><span class="p">,</span> <span class="s">&quot;Downloaded_Runtimes&quot;</span><span class="p">,</span><span class="s">&quot;Python-</span><span class="si">%s</span><span class="s">.tar.bz2&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">version</span><span class="p">))</span>
+        <span class="k">print</span> <span class="s">&quot;[=] Downloading from </span><span class="si">%s</span><span class="s"> .....&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">fn</span><span class="p">,</span> <span class="n">msg</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">urlretrieve</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">local</span><span class="p">)</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Download complete - saved to </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">local</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem downloading </span><span class="si">%s</span><span class="s"> : </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            <span class="k">return</span>
+            
+        <span class="k">print</span> <span class="s">&quot;[=] Decompressing....&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">tar</span> <span class="o">=</span> <span class="n">tarfile</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">local</span><span class="p">,</span> <span class="s">&quot;r:bz2&quot;</span><span class="p">)</span>
+            <span class="n">tar</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_LOCATION</span><span class="p">,</span> <span class="s">&quot;Downloaded_Runtimes&quot;</span><span class="p">))</span>
+            <span class="n">tar</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Complete&quot;</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Error decompressing - Check that the version given is a valid runtime at python.org&quot;</span>
+            
+            </div>
+<div class="viewcode-block" id="RePdb.py_ver_downloaded"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.py_ver_downloaded">[docs]</a>    <span class="k">def</span> <span class="nf">py_ver_downloaded</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ver</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Has the specifiedversion of Python already been downloaded ?</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_LOCATION</span><span class="p">,</span> <span class="s">&quot;Downloaded_Runtimes&quot;</span><span class="p">,</span><span class="s">&quot;Python-</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">ver</span><span class="p">)))</span>
+            <span class="k">return</span> <span class="bp">True</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">False</span>
+        
+    
+
+        </div>
+<div class="viewcode-block" id="RePdb.set_py"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.set_py">[docs]</a>    <span class="k">def</span> <span class="nf">set_py</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loc</span><span class="p">,</span> <span class="n">ver</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set the location of the python runtime for the specified version</span>
+<span class="sd">        Called from the other do_set_py* functions</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">global</span> <span class="n">RUNTIME_LOCATION</span>
+        <span class="n">RUNTIME_LOCATION</span><span class="p">[</span><span class="n">ver</span><span class="p">]</span> <span class="o">=</span> <span class="n">loc</span>
+        <span class="k">print</span> <span class="s">&quot;[=] Reference Python </span><span class="si">%s</span><span class="s"> location set to: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">ver</span><span class="p">,</span> <span class="n">loc</span><span class="p">)</span>
+        
+        </div>
+<div class="viewcode-block" id="RePdb.do_set_py24"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_set_py24">[docs]</a>    <span class="k">def</span> <span class="nf">do_set_py24</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loc</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset the location of the standard Python 2.4 runtime used to generate</span>
+<span class="sd">        reference bytecode</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: set_py24 /usr/local/bin/python2.4</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_py</span><span class="p">(</span><span class="n">loc</span><span class="p">,</span> <span class="s">&quot;2.4&quot;</span><span class="p">)</span>        
+
+        </div>
+<div class="viewcode-block" id="RePdb.do_set_py25"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_set_py25">[docs]</a>    <span class="k">def</span> <span class="nf">do_set_py25</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loc</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset the location of the standard Python 2.5 runtime used to generate</span>
+<span class="sd">        reference bytecode</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: set_py25 /usr/local/bin/python2.5</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_py</span><span class="p">(</span><span class="n">loc</span><span class="p">,</span> <span class="s">&quot;2.5&quot;</span><span class="p">)</span>
+        
+</div>
+<div class="viewcode-block" id="RePdb.do_set_py26"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_set_py26">[docs]</a>    <span class="k">def</span> <span class="nf">do_set_py26</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loc</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset the location of the standard Python 2.6 runtime used to generate</span>
+<span class="sd">        reference bytecode</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: set_py26 /usr/local/bin/python2.6</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_py</span><span class="p">(</span><span class="n">loc</span><span class="p">,</span> <span class="s">&quot;2.6&quot;</span><span class="p">)</span>
+        
+        </div>
+<div class="viewcode-block" id="RePdb.do_set_py27"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_set_py27">[docs]</a>    <span class="k">def</span> <span class="nf">do_set_py27</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loc</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset the location of the standard Python 2.7 runtime used to generate</span>
+<span class="sd">        reference bytecode</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: set_py27 /usr/local/bin/python2.7</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_py</span><span class="p">(</span><span class="n">loc</span><span class="p">,</span> <span class="s">&quot;2.7&quot;</span><span class="p">)</span>
+        
+</div>
+<div class="viewcode-block" id="RePdb.do_set_project"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_set_project">[docs]</a>    <span class="k">def</span> <span class="nf">do_set_project</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a new project or switch to an existing one</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: set_project &lt;project name&gt;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#TODO - description field</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] No project name supplied&quot;</span>
+            <span class="k">return</span>        
+     
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">does_project_exist</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+            <span class="c">##Project already exists so just switch to it</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">switch_project</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">return</span>
+        
+        <span class="k">print</span> <span class="s">&quot;[=] Please select the Python runtime version to associate wth this project&quot;</span>
+        <span class="k">print</span> <span class="s">&quot;[=] Automatic version detection &quot;</span>
+        <span class="n">p_ver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_autodetect_version</span><span class="p">()</span>
+        
+        <span class="c">##Has that version of the Python runtime already been downloaded?</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">py_ver_downloaded</span><span class="p">(</span><span class="n">p_ver</span><span class="p">):</span>
+            <span class="k">print</span> <span class="s">&quot;[=] Python </span><span class="si">%s</span><span class="s"> has not already been downloaded to the pyREtic cache,&quot;</span><span class="o">%</span><span class="n">p_ver</span>
+            <span class="k">print</span> <span class="s">&quot;    if you choose not to download the the standard runtime there&quot;</span>
+            <span class="k">print</span> <span class="s">&quot;    may be difficulties in performing some operations due to module&quot;</span>
+            <span class="k">print</span> <span class="s">&quot;    version mismatches.&quot;</span>
+            <span class="n">choice</span> <span class="o">=</span> <span class="nb">raw_input</span><span class="p">(</span><span class="s">&quot;Do you want to download Python </span><span class="si">%s</span><span class="s"> now? &quot;</span><span class="o">%</span><span class="n">p_ver</span> <span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">choice</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">[</span><span class="s">&quot;y&quot;</span><span class="p">,</span> <span class="s">&quot;yes&quot;</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">do_download_runtime</span><span class="p">(</span><span class="n">p_ver</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] Not downloading Python&quot;</span>
+                <span class="k">print</span> <span class="s">&quot;[!] Please copy the correct files for the Python runtime to the </span><span class="si">%s</span><span class="s"> projects libs directory&quot;</span>
+            
+        <span class="k">print</span> <span class="s">&quot;[=] Creating new project: &#39;</span><span class="si">%s</span><span class="s">&#39;&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">new_project</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">p_ver</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ret</span> <span class="o">==</span> <span class="bp">False</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem during project creation, source code output still going to: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_dump_dir</span><span class="p">())</span>
+        <span class="k">elif</span> <span class="n">ret</span> <span class="o">==</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Project created. Source code output now going to : </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_dump_dir</span><span class="p">())</span>
+
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">prompt</span> <span class="o">=</span> <span class="s">&#39;(REpdb:</span><span class="si">%s</span><span class="s">) &#39;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project</span><span class="p">())</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_set_version</span><span class="p">(</span><span class="n">p_ver</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">__reload_modules</span><span class="p">()</span>
+        
+        </div>
+<div class="viewcode-block" id="RePdb.switch_project"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.switch_project">[docs]</a>    <span class="k">def</span> <span class="nf">switch_project</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Switch to another project descriptor</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] No project name supplied&quot;</span>
+            <span class="k">return</span>
+        
+        <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">does_project_exist</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Project does not already exist, cannot switch to it&quot;</span>
+            <span class="k">return</span>
+
+        <span class="k">print</span> <span class="s">&quot;[=] Switching to project &#39;</span><span class="si">%s</span><span class="s">&#39;&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">switch_project</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        
+        <span class="k">print</span> <span class="s">&quot;[+] Success, sourcecode output now going to </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_dump_dir</span><span class="p">())</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">prompt</span> <span class="o">=</span> <span class="s">&#39;(REpdb:</span><span class="si">%s</span><span class="s">) &#39;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project</span><span class="p">())</span>
+        
+        <span class="c">##Read project meta data - </span>
+        <span class="c">#TODO break into own function as we hold more meta data</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;meta&quot;</span><span class="p">),</span> <span class="s">&quot;r&quot;</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">ver</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;:&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">do_set_version</span><span class="p">(</span><span class="n">ver</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> 
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] Problem reading project meta data : </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">remap_complete</span><span class="p">()</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">__reload_modules</span><span class="p">()</span>
+        
+        </div>
+<div class="viewcode-block" id="RePdb.does_project_exist"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.does_project_exist">[docs]</a>    <span class="k">def</span> <span class="nf">does_project_exist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Determine whether a project of the given name already exists</span>
+<span class="sd">        </span>
+<span class="sd">        Return boolean</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">normalise_path</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">print</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectroot</span><span class="p">(),</span> <span class="n">name</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectroot</span><span class="p">(),</span> <span class="n">name</span><span class="p">))</span>
+            <span class="k">return</span> <span class="bp">True</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">False</span>
+        
+</div>
+<div class="viewcode-block" id="RePdb.do_setprojectroot"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_setprojectroot">[docs]</a>    <span class="k">def</span> <span class="nf">do_setprojectroot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Leave the project name the same but change the root directory location </span>
+<span class="sd">        on the filesystem. The currently set project is used as the project to relocate</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: set_project_root /tmp/pyretic_dump</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">location</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] No project root location supplied&quot;</span>      
+            <span class="k">return</span>  
+        
+        <span class="k">print</span> <span class="s">&quot;[=] Setting project root to &#39;</span><span class="si">%s</span><span class="s">&#39;&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">location</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">set_projectroot</span><span class="p">(</span><span class="n">location</span><span class="p">):</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem during project change, source code output still going to: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_dump_dir</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[=] Source code output now going to : </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_dump_dir</span><span class="p">())</span>
+            
+        <span class="bp">self</span><span class="o">.</span><span class="n">remap_complete</span><span class="p">()</span>
+
+</div>
+<div class="viewcode-block" id="RePdb.do_fs_um_decompile"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_fs_um_decompile">[docs]</a>    <span class="k">def</span> <span class="nf">do_fs_um_decompile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Decompile obfuscated bytecode by traversing the filesystem from a given</span>
+<span class="sd">        start point and using the current runtimes marshal module to unmarshal</span>
+<span class="sd">        the bytecode of each .pyc found.</span>
+<span class="sd">        </span>
+<span class="sd">        Note: If the current obfuscated runtime does not have the marshal module</span>
+<span class="sd">              available then this decompilation technique cannot be used.</span>
+<span class="sd">              </span>
+<span class="sd">        usage: fs_um_decompile &lt;path to obfuscated pyc&#39;s&gt;</span>
+<span class="sd">        example: fs_um_decompile /tmp/foo.app/Contents/Resources/runtime/site_packages/</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] No path to begin decompilation from specified&quot;</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">fs_unmarshal</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="RePdb.do_fs_mem_decompile"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_fs_mem_decompile">[docs]</a>    <span class="k">def</span> <span class="nf">do_fs_mem_decompile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Decompile obfuscated bytecode by traversing the filesystem from a given</span>
+<span class="sd">        start point but do NOT rely on the presence of the marshal module to be</span>
+<span class="sd">        able to get thebytecode from the pyc file found. Instead each pyc found</span>
+<span class="sd">        is imported and each of its objects are interogated for their bytecode. </span>
+<span class="sd">        These bytecode objects are what is decompiled.</span>
+<span class="sd">        </span>
+<span class="sd">        Note: If the current obfuscated runtime does not have the marshal module</span>
+<span class="sd">              available but you do have access to the filesystem where the obfuscated</span>
+<span class="sd">              pyc&#39;s reside then this is the technique to use.</span>
+<span class="sd">              </span>
+<span class="sd">        usage: fs_mem_decompile &lt;path to obfuscated pyc&#39;s&gt;</span>
+<span class="sd">        example: fs_mem_decompile /tmp/foo.app/Contents/Resources/runtime/site_packages/</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] No path to begin decompilation from specified&quot;</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">fs_objwalk</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="RePdb.do_pure_mem_decompile"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_pure_mem_decompile">[docs]</a>    <span class="k">def</span> <span class="nf">do_pure_mem_decompile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Decompile to source code purely from instantiated objects. This assumes</span>
+<span class="sd">        no availability of the marshal module or even access to the filesystem</span>
+<span class="sd">        where the pyc files reside, this decompiles directly from the currently</span>
+<span class="sd">        executing runtimes namespace.</span>
+<span class="sd">        The specified object is decompiled and the objects it contains are traversed</span>
+<span class="sd">        and decompiled until no more remain.</span>
+<span class="sd">        </span>
+<span class="sd">        [ Currently available objects can be seen by typing dir() at the REpdb prompt]</span>
+
+<span class="sd">        usage: pure_mem_decompile &lt;name of object to decompile&gt;</span>
+<span class="sd">        example: pure_mem_decompile AnObjectsName</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">obj</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] No object to begin decompilation from specified&quot;</span>
+            <span class="k">return</span>
+        
+        <span class="c">##We need to access the context of the frame we started the trace from</span>
+        <span class="c">##NOT our frame we are executing in here - self.curframe holds this from</span>
+        <span class="c">##bdp</span>
+        <span class="c">#print &quot;Current executing frame context: &quot;,sys._getframe()</span>
+        <span class="c">#print &quot;Frame from where the debugger was called: &quot;,self.curframe</span>
+        <span class="nb">locals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">curframe</span><span class="o">.</span><span class="n">f_locals</span>
+        <span class="nb">globals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">curframe</span><span class="o">.</span><span class="n">f_globals</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c">##We are passed a string, eval it to an object using the calling frames </span>
+            <span class="c">## globals and locals</span>
+            <span class="n">e_obj</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">globals</span><span class="p">,</span> <span class="nb">locals</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">print</span> <span class="nb">dir</span><span class="p">()</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem accessing specified object: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">mem_objwalk</span><span class="p">(</span> <span class="n">e_obj</span> <span class="p">)</span>
+
+
+</div>
+<div class="viewcode-block" id="RePdb.do_get_version"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_get_version">[docs]</a>    <span class="k">def</span> <span class="nf">do_get_version</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the reported version of the currently executing Python runtime</span>
+<span class="sd">        Note: This may not be accurate, a runtime can be made to report any version. </span>
+<span class="sd">              Use only as an indicator when choosing a reference runtime to use.</span>
+<span class="sd">              </span>
+<span class="sd">        usage: get_version</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">print</span> <span class="s">&quot;[=] Report version of current runtime:</span><span class="se">\n\t</span><span class="si">%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="p">)</span>
+    </div>
+<div class="viewcode-block" id="RePdb.do_auto_remap"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_auto_remap">[docs]</a>    <span class="k">def</span> <span class="nf">do_auto_remap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remapped_pycs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Make some best guesses on how to remap the opcodes from the currently</span>
+<span class="sd">        running obfuscated runtime.</span>
+<span class="sd">        </span>
+<span class="sd">        NOTE: If there is an exiting auto_remap project it will be overwritten</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: auto_remap &lt;path to remapped pycs&gt;</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">remapped_pycs</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] No target obfuscated byte code supplied to remap. Aborting&quot;</span>
+            <span class="k">return</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_is_remapped</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime_remapped</span><span class="p">:</span>
+            <span class="n">resp</span> <span class="o">=</span> <span class="nb">raw_input</span><span class="p">(</span> <span class="s">&quot;[!] It doesn&#39;t seem like the runtime we are in has remapped it&#39;s opcodes, do you want to continue to remap anyway ? (yes/no) &quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">[</span><span class="s">&quot;n&quot;</span><span class="p">,</span><span class="s">&quot;no&quot;</span><span class="p">]:</span>
+                <span class="k">print</span> <span class="s">&quot;[=] Aborting remap&quot;</span>
+                <span class="k">return</span>
+            
+        <span class="c">##Remove an existing auto_remap project</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">prev_project_root</span><span class="p">,</span> <span class="s">&quot;auto-remap&quot;</span><span class="p">))</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="c">##Probably didn&#39;t exist</span>
+            <span class="k">pass</span>
+
+        <span class="c">##New project called auto remap - this will prompt for py runtime version choice</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_set_project</span><span class="p">(</span><span class="s">&quot;auto-remap&quot;</span><span class="p">)</span>
+            
+        <span class="c">##Generate reference bytecode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_gen_ref</span><span class="p">()</span>
+        
+        <span class="c">##Generate obfuscated bytecode with supplied pyc target</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_gen_obf</span><span class="p">(</span><span class="n">remapped_pycs</span><span class="p">)</span>
+        
+        <span class="c">##Perform remap</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">autowrite</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_remap</span><span class="p">()</span>
+        
+        <span class="c">##Swap in the newly generated opcodes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_swap_opcodes</span><span class="p">()</span>
+        
+        <span class="k">print</span> <span class="s">&quot;[+] Automatic remapping of opcodes complete. Please restart to use the new opcode tables in decompilation&quot;</span>
+        
+    
+</div>
+<div class="viewcode-block" id="RePdb.do_gen_ref"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_gen_ref">[docs]</a>    <span class="k">def</span> <span class="nf">do_gen_ref</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>  <span class="n">reference_modules</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate reference bytecode from the .py&#39;s at the path specified</span>
+<span class="sd">        using the Python runtime version already set. If not path is specified</span>
+<span class="sd">        the relevant Python runtime will be used if it has already been downloaded</span>
+<span class="sd">        with download_runtime.</span>
+<span class="sd">        </span>
+<span class="sd">        The generated bytecode will be used to diff against the obfuscated</span>
+<span class="sd">        bytecode to deduce a modified opcode map.</span>
+<span class="sd">        The more commonality between the reference and obfuscated bytecode there</span>
+<span class="sd">        the higher the number of opcodes that will be able to be remapped.</span>
+<span class="sd">  </span>
+<span class="sd">        Usage:   gen_ref  [to use the downloaded runtime of the current project </span>
+<span class="sd">                           version as the reference source]</span>
+<span class="sd">                 gen_ref &lt;path to directory of reference python source code&gt;</span>
+<span class="sd">        Example: gen_ref /tmp/python2.5.4/Lib </span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">downloaded_rt</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_LOCATION</span><span class="p">,</span> <span class="s">&quot;Downloaded_Runtimes&quot;</span><span class="p">,</span>
+                                         <span class="s">&quot;Python-</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">runtime_version</span><span class="p">),</span> <span class="s">&quot;Lib&quot;</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">downloaded_rt</span><span class="p">)</span>
+            <span class="n">source_modules</span> <span class="o">=</span> <span class="n">downloaded_rt</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">source_modules</span> <span class="o">=</span> <span class="bp">None</span>
+            
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">reference_modules</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">source_modules</span><span class="p">:</span>
+            
+            <span class="k">print</span> <span class="s">&quot;[-] No path given from which to generate reference bytecode and no runtime downloaded for stdlib use&quot;</span>
+            <span class="k">return</span>
+        <span class="k">elif</span> <span class="n">reference_modules</span><span class="p">:</span>
+            <span class="n">source_modules</span> <span class="o">=</span> <span class="n">reference_modules</span>
+            
+        <span class="c">##Force a recompile so we know we are in a clean state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_recompile</span><span class="p">(</span><span class="n">downloaded_rt</span><span class="p">)</span>
+            
+        <span class="n">source_modules</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">normalise_path</span><span class="p">(</span><span class="n">source_modules</span><span class="p">)</span>
+        <span class="k">print</span> <span class="s">&quot;[=] Generating bytecode from .py&#39;s at: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">source_modules</span><span class="p">)</span>
+        
+        <span class="c">##Where the bytecode output will go</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ref_pyb</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;pybs&quot;</span><span class="p">)</span>
+        
+        <span class="c">##We need to run in a standrd runtime (not the current one)to get reference </span>
+        <span class="c">##bytecode so we call out to the external Python runtime that is set</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime_version</span> <span class="o">==</span> <span class="s">&quot;default&quot;</span><span class="p">:</span>
+            <span class="n">version_to_gen</span> <span class="o">=</span> <span class="s">&quot;2.5&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">maj_ver</span> <span class="ow">in</span> <span class="n">RUNTIME_LOCATION</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+
+                <span class="k">if</span> <span class="n">maj_ver</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime_version</span><span class="p">:</span>
+                    <span class="n">version_to_gen</span> <span class="o">=</span> <span class="n">maj_ver</span>
+                    <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] Unknown runtime location for version specified: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">runtime_version</span><span class="p">)</span>
+                <span class="k">return</span>
+
+        <span class="c">##-S needed to supress any site specific import hooks that may be in the</span>
+        <span class="c">## obfuscated package we are runnign from that will get in the way</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="p">[</span><span class="n">RUNTIME_LOCATION</span><span class="p">[</span><span class="n">version_to_gen</span><span class="p">],</span> <span class="s">&quot;-S&quot;</span><span class="p">,</span>
+                   <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_LOCATION</span><span class="p">,</span> <span class="s">&quot;OpcodeRemapping&quot;</span><span class="p">,</span> <span class="s">&quot;OpcodeRemap.py&quot;</span><span class="p">),</span> 
+                   <span class="n">version_to_gen</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ref_pyb</span><span class="p">,</span> <span class="n">source_modules</span><span class="p">]</span>
+        <span class="k">print</span> <span class="s">&quot;[=] Using runtime located at </span><span class="si">%s</span><span class="s"> to create reference bytecode&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">RUNTIME_LOCATION</span><span class="p">[</span><span class="n">version_to_gen</span><span class="p">])</span>
+        
+        <span class="c">## Reset environment of PYTHON* variables to avoid interference</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">old_home</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&quot;PYTHONHOME&quot;</span><span class="p">]</span>
+            <span class="k">del</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&quot;PYTHONHOME&quot;</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">old_home</span> <span class="o">=</span> <span class="bp">None</span>
+            
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">old_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&quot;PYTHONPATH&quot;</span><span class="p">]</span>
+            <span class="k">del</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&quot;PYTHONPATH&quot;</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">old_path</span> <span class="o">=</span> <span class="bp">None</span>
+        
+        <span class="c">##Spawn process to generate bytecodes</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ref_pyb_generated</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Error trying to execute: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+
+        <span class="c">##Reset env</span>
+        <span class="k">if</span> <span class="n">old_home</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&quot;PYTHONHOME&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">old_home</span>
+        <span class="k">if</span> <span class="n">old_path</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&quot;PYTHONPATH&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">old_path</span>
+     
+        <span class="k">print</span> <span class="s">&quot;[+] Reference bytecode generated&quot;</span>
+        
+        </div>
+<div class="viewcode-block" id="RePdb.do_gen_obf"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_gen_obf">[docs]</a>    <span class="k">def</span> <span class="nf">do_gen_obf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obfuscated_modules</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate obfuscated Python bytecode for the modules at the path </span>
+<span class="sd">        specified using the current runtime we are running from. </span>
+<span class="sd">        The generated bytecode will be used to diff against the </span>
+<span class="sd">        reference bytecode to deduce a modified opcode map. In general you</span>
+<span class="sd">        should point this at the directory containing the obfuscated</span>
+<span class="sd">        stdlib .pyc&#39;s for the obfuscated runtime</span>
+<span class="sd">        </span>
+<span class="sd">        The more commonality between the reference and obfuscated bytecode there</span>
+<span class="sd">        the higher the number of opcodes that will be able to be remapped.</span>
+<span class="sd">  </span>
+<span class="sd">        Usage:   gen_obf &lt;path to directory of obfusctaed python .pyc&#39;s&gt;</span>
+<span class="sd">        Example: gen_obf /tmp/foo.app/Contents/Resources/runtime/site_packages/ </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">obfuscated_modules</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] No path given from which to generate obfuscated bytecode&quot;</span>
+            <span class="k">return</span>
+        
+        <span class="c">##Make sure we have everything current</span>
+        <span class="k">if</span> <span class="s">&quot;OpcodeRemap&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="kn">from</span> <span class="nn">OpcodeRemapping</span> <span class="kn">import</span> <span class="n">OpcodeRemap</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">OpcodeRemap</span> <span class="o">=</span> <span class="nb">reload</span><span class="p">(</span><span class="n">OpcodeRemap</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">obf_pyb</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;pybs&quot;</span><span class="p">)</span>
+        
+        <span class="n">obfuscated_modules</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">normalise_path</span><span class="p">(</span><span class="n">obfuscated_modules</span><span class="p">)</span>
+        <span class="k">print</span> <span class="s">&quot;[=] Generating bytecode from .py&#39;s at: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">obfuscated_modules</span><span class="p">)</span>
+        
+        <span class="c">##Call into OpcodeRemap</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime_version</span> <span class="o">==</span> <span class="s">&quot;default&quot;</span><span class="p">:</span>
+            <span class="n">version_to_gen</span> <span class="o">=</span> <span class="s">&quot;2.5&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">version_to_gen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime_version</span>
+
+        <span class="n">OpcodeRemap</span><span class="o">.</span><span class="n">gen_obf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">obf_pyb</span><span class="p">,</span> <span class="n">obfuscated_modules</span><span class="p">,</span> <span class="n">version_to_gen</span><span class="p">)</span>
+            
+        <span class="k">print</span> <span class="s">&quot;[+] Obfuscated bytecode generated&quot;</span>
+        
+    </div>
+<div class="viewcode-block" id="RePdb.do_remap"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_remap">[docs]</a>    <span class="k">def</span> <span class="nf">do_remap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dirs</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        From the two sets of .pyb&#39;s produced by gen_r2x and gen_o2x do the compares</span>
+<span class="sd">        to work out the new opcode map. From this new opcode map create new files</span>
+<span class="sd">        opcode.py (for the running stdlib) and opcodes.py (for UnPYC) </span>
+<span class="sd">        </span>
+<span class="sd">        Note: the .pyb&#39;s must already have been generated from the gen_xxx calls</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: remap</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dirs</span><span class="p">:</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;pybs&quot;</span><span class="p">,</span><span class="s">&quot;obf_pyb&quot;</span><span class="p">))</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;pybs&quot;</span><span class="p">,</span><span class="s">&quot;ref_pyb&quot;</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] No .pyb directories could be found and non specified&quot;</span>
+                <span class="k">return</span>
+
+            <span class="c">##Try setting to where pyb&#39;s would reside if they had already been gen&#39;d</span>
+            <span class="n">ref_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;pybs&quot;</span><span class="p">,</span><span class="s">&quot;ref_pyb&quot;</span><span class="p">)</span>
+            <span class="n">obf_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;pybs&quot;</span><span class="p">,</span><span class="s">&quot;obf_pyb&quot;</span><span class="p">)</span>
+
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c">##Split supplied sirs string to ref and obf</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">ref_dir</span><span class="p">,</span> <span class="n">obf_dir</span> <span class="o">=</span> <span class="n">dirs</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot; &quot;</span><span class="p">)</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] Reference or obfuscated .pyb sets not produced or specified&quot;</span>
+                <span class="k">return</span>
+            
+        <span class="c">##Make sure we have everything current</span>
+        <span class="k">if</span> <span class="s">&quot;OpcodeRemap&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="kn">from</span> <span class="nn">OpcodeRemapping</span> <span class="kn">import</span> <span class="n">OpcodeRemap</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">OpcodeRemap</span> <span class="o">=</span> <span class="nb">reload</span><span class="p">(</span><span class="n">OpcodeRemap</span><span class="p">)</span>
+
+        <span class="c">##Location where the opcode/opcodes.py will be dumped - with project</span>
+        <span class="n">output_dir</span><span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project_mod_dir</span>
+
+        <span class="c">##Call into OpcodeRemap</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">OpcodeRemap</span><span class="o">.</span><span class="n">remap</span><span class="p">(</span><span class="n">ref_dir</span><span class="p">,</span> <span class="n">obf_dir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project_mod_dir</span><span class="p">())</span>
+
+        <span class="k">except</span> <span class="n">OpcodeRemap</span><span class="o">.</span><span class="n">OpcodeRemapError</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem with remap: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+            
+</div>
+<div class="viewcode-block" id="RePdb.do_swap_opcodes"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_swap_opcodes">[docs]</a>    <span class="k">def</span> <span class="nf">do_swap_opcodes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Swap the remapped opcodes.py module for the original module in the UnPYC</span>
+<span class="sd">        directory. Until this is done UnPYC will not be able to decompile </span>
+<span class="sd">        correctly as it will be using the wrong opcode map. The opcodes.py file</span>
+<span class="sd">        that will be used is the one that is located at the PROJECT_DIR/libs</span>
+
+<span class="sd">        Ssage: swap_modules</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;opcode&quot;</span><span class="p">,</span> <span class="s">&quot;opcodes&quot;</span><span class="p">]</span>
+        
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">remap_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project_mod_dir</span><span class="p">(),</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">_remap.py&quot;</span><span class="o">%</span><span class="n">f</span><span class="p">)</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">remap_name</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] Remapped </span><span class="si">%s</span><span class="s">_remap.py file cannot be found at: </span><span class="si">%s</span><span class="se">\n\t</span><span class="s"> Has it been generated yet?&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">remap_name</span><span class="p">)</span>
+                <span class="k">continue</span>
+            
+            <span class="c">##Archive current opcodes.py module</span>
+            <span class="n">archive_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project_mod_dir</span><span class="p">(),</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">_orig.py&quot;</span><span class="o">%</span><span class="n">f</span><span class="p">)</span>
+            <span class="n">curr_name</span>    <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project_mod_dir</span><span class="p">(),</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">.py&quot;</span><span class="o">%</span><span class="n">f</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">shutil</span><span class="o">.</span><span class="n">copyfile</span><span class="p">(</span><span class="n">curr_name</span><span class="p">,</span>  <span class="n">archive_name</span><span class="p">)</span>
+                <span class="k">print</span> <span class="s">&quot;[+] Original </span><span class="si">%s</span><span class="s">.py archived to </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">f</span><span class="p">,</span><span class="n">archive_name</span><span class="p">)</span>
+    
+                <span class="c">##Copy over</span>
+                <span class="n">shutil</span><span class="o">.</span><span class="n">copyfile</span><span class="p">(</span><span class="n">remap_name</span><span class="p">,</span> <span class="n">curr_name</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">do_module_restore</span> <span class="o">=</span> <span class="bp">False</span>
+                
+                <span class="c">#TODO force reload</span>
+                <span class="c">##live.reload()</span>
+                
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] Error copying a file: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+                
+        <span class="k">print</span> <span class="s">&quot;[+] New opcode maps copied&quot;</span>
+        <span class="k">print</span> <span class="s">&quot;[!!] *MUST restart REpdb for changes to take effect*&quot;</span>
+        
+<span class="c">##        ##Reload stdlib modules</span>
+<span class="c">##        self.__reload_modules()</span>
+<span class="c">##        </span>
+<span class="c">##        if &quot;OpcodeRemap&quot; not in sys.modules.keys():</span>
+<span class="c">##            print &quot;IMPORT&quot;</span>
+<span class="c">##            from OpcodeRemapping import OpcodeRemap</span>
+<span class="c">##            OpcodeRemap.opcode.__file__</span>
+<span class="c">##        else:</span>
+<span class="c">##            print &quot;RELOAD&quot;</span>
+<span class="c">##            OpcodeRemap = reload(OpcodeRemap)</span>
+<span class="c">##            OpcodeRemap.opcode.__file__</span>
+
+
+            </div>
+<div class="viewcode-block" id="RePdb.do_restore_opcodes"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_restore_opcodes">[docs]</a>    <span class="k">def</span> <span class="nf">do_restore_opcodes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Restore the original opcode.py and opcodes.py module that was archived by swap_opcodes</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: restore_opcodes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">files_to_move</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;opcode&quot;</span><span class="p">,</span> <span class="s">&quot;opcodes&quot;</span><span class="p">]</span>
+        
+        
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files_to_move</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project_mod_dir</span><span class="p">(),</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">_orig.py&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">f</span><span class="p">)))</span>
+            
+            <span class="k">except</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] Archived file </span><span class="si">%s</span><span class="s">_orig.py cannot be found, check if has remapping occurred?&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                <span class="k">continue</span>
+            
+            
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">shutil</span><span class="o">.</span><span class="n">copyfile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project_mod_dir</span><span class="p">(),</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">_orig.py&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">f</span><span class="p">)),</span>
+                                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_project_mod_dir</span><span class="p">(),</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">.py&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">f</span><span class="p">)))</span>
+                
+                <span class="k">print</span> <span class="s">&quot;[+] Restored original </span><span class="si">%s</span><span class="s">.py&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] Error copying file: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+                
+        <span class="c">#print &quot;[=] *MUST* restart REpdb for changes to take effect&quot;</span>
+        <span class="c">#TODO force reload</span>
+        <span class="c">##live.reload()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__reload_modules</span><span class="p">()</span>
+
+</div>
+<div class="viewcode-block" id="RePdb.do_recompile"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_recompile">[docs]</a>    <span class="k">def</span> <span class="nf">do_recompile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For the path specified do a recursive recompilation of all .py&#39;s found</span>
+<span class="sd">        using the current runtimes compiler (if available)</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: recompile &lt;path to modules&gt;</span>
+<span class="sd">        Example: recompile /tmp/python_254/Libs</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">##From the projects libs</span>
+        <span class="kn">import</span> <span class="nn">compileall</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] No path to begin recompilation from specified&quot;</span>
+            <span class="k">return</span>
+        
+        <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">normalise_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">compileall</span><span class="o">.</span><span class="n">compile_dir</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>            
+            <span class="k">print</span> <span class="s">&quot;[+] Recompilation complete&quot;</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Unable to recompile: </span><span class="si">%s</span><span class="s">&quot;</span>
+
+   </div>
+<div class="viewcode-block" id="RePdb.trace_dispatch"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.trace_dispatch">[docs]</a>    <span class="k">def</span> <span class="nf">trace_dispatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame</span><span class="p">,</span> <span class="n">event</span><span class="p">,</span> <span class="n">arg</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Overide the bdb trace_dispatch method so as we can add in more</span>
+<span class="sd">        trace hooks for other functionality such as call graphing</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#print &quot;\nCalling Frame : %s\nDebugger Frame: %s\n&quot;%(frame, self.debugger_frame )</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debugger_frame</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">_getframe</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calling_frame</span> <span class="o">=</span> <span class="n">frame</span>
+        
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">callgraph_started</span><span class="p">:</span>
+            <span class="n">pycallgraph</span><span class="o">.</span><span class="n">tracer</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">event</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span>
+
+        <span class="c">##Call through to the original trace_dispatch to continue the</span>
+        <span class="c">##debugger activity</span>
+        <span class="k">return</span> <span class="n">pdb</span><span class="o">.</span><span class="n">bdb</span><span class="o">.</span><span class="n">Bdb</span><span class="o">.</span><span class="n">trace_dispatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame</span><span class="p">,</span> <span class="n">event</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span>
+        
+    <span class="c">##Extra none decompile related functionality</span></div>
+<div class="viewcode-block" id="RePdb.do_set_callgraph_exclude"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_set_callgraph_exclude">[docs]</a>    <span class="k">def</span> <span class="nf">do_set_callgraph_exclude</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">excludes</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set an exclusion filter for the callgraph functionality, this defines</span>
+<span class="sd">        modules/functions that are not included in the callgraph tracing</span>
+<span class="sd">        </span>
+<span class="sd">        Argument is a comma seperated list of filter expresions</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: set_callgraph_exclude foo,bar*,blat</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">cg_exclude</span> <span class="o">+=</span> <span class="n">excludes</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot; &quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;,&quot;</span><span class="p">)</span>
+        
+        <span class="k">print</span> <span class="s">&quot;[=] Set callgraph excludes to: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cg_exclude</span><span class="p">)</span>
+        
+    </div>
+<div class="viewcode-block" id="RePdb.do_start_callgraph"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_start_callgraph">[docs]</a>    <span class="k">def</span> <span class="nf">do_start_callgraph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialise a callgraph trace using pycallgraph</span>
+<span class="sd">        After this is set use the pdb commands &#39;n&#39;, &#39;c&#39; etc to step through</span>
+<span class="sd">        the application being debugged and generate the callgraph</span>
+<span class="sd">        </span>
+<span class="sd">        The callgraph can be stopped &amp; written at anytime by &#39;stop_callgraph&#39;,</span>
+<span class="sd">        if the debugging exits the callgraph is automatically stopped and written</span>
+
+<span class="sd">        Usage: start_callgraph &lt;name of callgraph if you want non-default name&gt;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">##Both pdb and pycallgraph both want to set the tracer so we have to chain them</span>
+        <span class="c">## sys.settrace applies globally to all frames</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">CAN_CALLGRAPH</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] pycallgraph module, or graphviz unavailable&quot;</span>
+            <span class="k">return</span>
+
+        <span class="c">##If no filename for the callgraph is given just use epoch to get one</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cg_name</span> <span class="o">=</span> <span class="s">&quot;callgraph_</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cg_name</span> <span class="o">=</span> <span class="n">name</span>
+
+        <span class="c">##Try to cleanup graph a bit</span>
+        <span class="n">filter_func</span> <span class="o">=</span> <span class="n">pycallgraph</span><span class="o">.</span><span class="n">GlobbingFilter</span><span class="p">(</span><span class="n">exclude</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cg_exclude</span><span class="p">,</span> <span class="n">max_depth</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span>
+
+        <span class="nb">locals</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calling_frame</span><span class="o">.</span><span class="n">f_locals</span>
+        <span class="nb">globals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calling_frame</span><span class="o">.</span><span class="n">f_globals</span>        
+        
+        <span class="c">##Call the callgraph funtion from the context f_backframe</span>
+        <span class="k">exec</span><span class="p">(</span><span class="s">&quot;from ThirdParty import pycallgraph&quot;</span><span class="p">,</span> <span class="nb">globals</span><span class="p">,</span><span class="nb">locals</span><span class="p">)</span>
+        <span class="k">exec</span><span class="p">(</span><span class="s">&quot;pycallgraph.start_trace()&quot;</span><span class="p">,</span> <span class="nb">globals</span><span class="p">,</span> <span class="nb">locals</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">callgraph_started</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">print</span> <span class="s">&quot;[+] Call graph initialised&quot;</span>
+
+</div>
+<div class="viewcode-block" id="RePdb.do_stop_callgraph"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_stop_callgraph">[docs]</a>    <span class="k">def</span> <span class="nf">do_stop_callgraph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">foo</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Stop &amp; print callgraph</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: stop_callgraph</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">callgraph_started</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Call graph not started yet. Use &#39;start_callgraph&#39; to start&quot;</span>
+            <span class="k">return</span>
+
+        <span class="n">graph_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span>
+                                  <span class="s">&quot;</span><span class="si">%s</span><span class="s">.jpg&quot;</span><span class="o">%</span><span class="bp">self</span><span class="o">.</span><span class="n">cg_name</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">))</span>
+
+        <span class="k">print</span> <span class="s">&quot;[+] Outputting callgraph to: </span><span class="si">%s</span><span class="se">\n</span><span class="s">  This may take a while...&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">graph_path</span><span class="p">)</span>
+
+        <span class="c">##Put in the calling frames context</span>
+        <span class="nb">locals</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calling_frame</span><span class="o">.</span><span class="n">f_locals</span>
+        <span class="nb">globals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calling_frame</span><span class="o">.</span><span class="n">f_globals</span>   
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">exec</span><span class="p">(</span><span class="s">&quot;pycallgraph.make_dot_graph(&#39;</span><span class="si">%s</span><span class="s">&#39;,format=&#39;jpg&#39;, tool=&#39;dot&#39;)&quot;</span><span class="o">%</span><span class="n">graph_path</span><span class="p">,</span> <span class="nb">globals</span><span class="p">,</span> <span class="nb">locals</span><span class="p">)</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Graph generation complete&quot;</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem generating callgraph: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="n">err</span>
+            <span class="k">print</span> <span class="s">&quot;[?] Is graphviz installed on your system? (http://www.graphviz.org/Download..php)&quot;</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">callgraph_started</span> <span class="o">=</span> <span class="bp">False</span>
+
+</div>
+<div class="viewcode-block" id="RePdb.do_obj_mirror"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.do_obj_mirror">[docs]</a>    <span class="k">def</span> <span class="nf">do_obj_mirror</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For the supplied object, all of it&#39;s methods/attributes etc are mirrored</span>
+<span class="sd">        in the calling objects namespace</span>
+<span class="sd">        This is a dirty way of acting as an object proxy meaning we can be injected</span>
+<span class="sd">        in place of another object and be sure we won&#39;t break the larger app</span>
+<span class="sd">        </span>
+<span class="sd">        If no frame is specified then the frame from which the debugger was called is used</span>
+<span class="sd">        If &quot;debugger&quot; is given as the frame the debugger frame is used</span>
+<span class="sd">        </span>
+<span class="sd">        Usage: obj_mirror &lt;instantiated object to mirror&gt;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span> <span class="nn">inspect</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] No object supplied to mirror&quot;</span>
+            <span class="k">return</span> 
+        
+        <span class="n">arg_list</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot; &quot;</span><span class="p">)</span>
+        <span class="n">s_obj_to_mirror</span> <span class="o">=</span> <span class="n">arg_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arg_list</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">arg_list</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="bp">None</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">frame</span><span class="p">:</span>
+            <span class="c">##Use context of calling frame</span>
+            <span class="n">frame_context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">curframe</span>
+        
+        <span class="k">elif</span> <span class="n">frame</span> <span class="o">==</span> <span class="s">&quot;debugger&quot;</span><span class="p">:</span>
+            <span class="c">##Use context of the frame the debugger is executing in</span>
+            <span class="n">frame_context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">debugger_frame</span>
+        
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c">##None frame object supplied ... bail</span>
+            <span class="k">print</span> <span class="s">&quot;[-] None frame object supplied - object type was </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">frame</span><span class="p">))</span>
+            <span class="k">return</span>
+        
+        <span class="nb">locals</span>  <span class="o">=</span> <span class="n">frame_context</span><span class="o">.</span><span class="n">f_locals</span>
+        <span class="nb">globals</span> <span class="o">=</span> <span class="n">frame_context</span><span class="o">.</span><span class="n">f_globals</span>
+        
+        <span class="k">print</span> <span class="s">&quot;[=] Mirroring </span><span class="si">%s</span><span class="s"> in the context of </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">s_obj_to_mirror</span><span class="p">,</span> <span class="n">frame_context</span><span class="p">)</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">obj_to_mirror</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">s_obj_to_mirror</span><span class="p">,</span> <span class="nb">globals</span><span class="p">,</span> <span class="nb">locals</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Unknown object specified, cannot mirror&quot;</span>
+            <span class="k">return</span>
+
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="n">obj_to_mirror</span><span class="p">):</span>
+
+            <span class="n">skip_list</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;__init__&quot;</span><span class="p">,</span> <span class="s">&quot;__builtins__&quot;</span><span class="p">,</span> <span class="s">&quot;__doc__&quot;</span><span class="p">,</span> <span class="s">&quot;__name__&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isbuiltin</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="ow">or</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">skip_list</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] skipping </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="k">print</span> <span class="s">&quot;[+] </span><span class="si">%s</span><span class="s"> -&gt; </span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">obj_to_mirror</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+            <span class="k">exec</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%s</span><span class="s"> = </span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">obj_to_mirror</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> 
+                 <span class="nb">globals</span><span class="p">,</span> <span class="nb">locals</span><span class="p">)</span>
+            </div>
+<div class="viewcode-block" id="RePdb.cleanup"><a class="viewcode-back" href="../REpdb.html#REpdb.RePdb.cleanup">[docs]</a>    <span class="k">def</span> <span class="nf">cleanup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Cleanup function, currently just stops the callgraph if it</span>
+<span class="sd">        has been started</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#print &quot;[+] atexit cleanup function entered&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">callgraph_started</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">do_stop_callgraph</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+            
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">do_module_restore</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">do_restore_opcodes</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+            
+        
+<span class="c"># Simplified interface - for similar uasage to pdb.py</span>
+</div></div>
+<span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="n">statement</span><span class="p">,</span> <span class="nb">globals</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="nb">locals</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="n">RePdb</span><span class="p">()</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">statement</span><span class="p">,</span> <span class="nb">globals</span><span class="p">,</span> <span class="nb">locals</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">runeval</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="nb">globals</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="nb">locals</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">RePdb</span><span class="p">()</span><span class="o">.</span><span class="n">runeval</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="nb">globals</span><span class="p">,</span> <span class="nb">locals</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">runctx</span><span class="p">(</span><span class="n">statement</span><span class="p">,</span> <span class="nb">globals</span><span class="p">,</span> <span class="nb">locals</span><span class="p">):</span>
+    <span class="c"># B/W compatibility</span>
+    <span class="n">run</span><span class="p">(</span><span class="n">statement</span><span class="p">,</span> <span class="nb">globals</span><span class="p">,</span> <span class="nb">locals</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">runcall</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">RePdb</span><span class="p">()</span><span class="o">.</span><span class="n">runcall</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">set_trace</span><span class="p">(</span><span class="n">frame</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+
+    <span class="n">REPDBInstance</span> <span class="o">=</span> <span class="n">RePdb</span><span class="p">()</span>
+    
+    <span class="n">atexit</span><span class="o">.</span><span class="n">register</span><span class="p">(</span> <span class="n">REPDBInstance</span><span class="o">.</span><span class="n">cleanup</span><span class="p">,</span> <span class="n">REPDBInstance</span><span class="p">)</span>
+    
+    <span class="n">REPDBInstance</span><span class="o">.</span><span class="n">set_trace</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">_getframe</span><span class="p">()</span><span class="o">.</span><span class="n">f_back</span><span class="p">)</span>
+            
+
+<span class="c"># Post-Mortem interface - for similar uasage to pdb.py</span>
+
+<span class="k">def</span> <span class="nf">post_mortem</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">RePdb</span><span class="p">()</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+    <span class="k">while</span> <span class="n">t</span><span class="o">.</span><span class="n">tb_next</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">tb_next</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">interaction</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">tb_frame</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">pm</span><span class="p">():</span>
+    <span class="n">post_mortem</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">last_traceback</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&quot;__main__&quot;</span><span class="p">:</span>
+
+    <span class="n">set_trace</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">pyREtic v5 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Rich Smith.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.5.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,710 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>liveUnPYC &mdash; pyREtic v5 documentation</title>
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '5',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="pyREtic v5 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">pyREtic v5 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for liveUnPYC</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/env python</span>
+<span class="c">##WingHeader v1 </span>
+<span class="c">###############################################################################</span>
+<span class="c">## File       :  liveUnPYC.py</span>
+<span class="c">## Description:  Superclass of UnPyc functionality to allow the decompilation</span>
+<span class="c">##            :  of raw code objects in memory rather than pyc&#39;s on disk</span>
+<span class="c">## Created_On :  Tue Aug  3 20:28:36 2010</span>
+<span class="c">## Created_By :  Rich Smith</span>
+<span class="c">## Modified_On:  Mon Dec  6 12:13:39 2010</span>
+<span class="c">## Modified_By:  Rich Smith</span>
+<span class="c">## License    :  GPLv3 (Docs/LICENSE.txt)</span>
+<span class="c">##</span>
+<span class="c">## (c) Copyright 2010, Rich Smith all rights reserved.</span>
+<span class="c">###############################################################################</span>
+
+<span class="c">##This is wrapper functionality around the core decompiler UnPyc which is written</span>
+<span class="c">## by Dmitri Kornev and available from http://unpyc.sourceforge.net</span>
+<span class="c">## At the time of writing the latest version was 0.81</span>
+
+<span class="c">#Refs</span>
+<span class="c">#http://docs.python.org/reference/datamodel.html</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="c">##Current runtime&#39;s modules</span>
+    <span class="kn">import</span> <span class="nn">sys</span>      <span class="c">##builtin</span>
+    <span class="kn">import</span> <span class="nn">marshal</span>  <span class="c">##c module</span>
+    
+    <span class="c">##Module from the projects lib - corresponding to the projects version number</span>
+    <span class="kn">import</span> <span class="nn">inspect</span>
+    <span class="kn">import</span> <span class="nn">traceback</span>
+    <span class="kn">import</span> <span class="nn">types</span>
+    
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+    <span class="k">print</span> <span class="s">&quot;[-] Problem importing required module: </span><span class="si">%s</span><span class="s">&quot;</span>
+
+<span class="c">##From UnPyc </span>
+<span class="kn">from</span> <span class="nn">Decompilers.unpyc</span> <span class="kn">import</span> <span class="n">parse</span>
+<span class="kn">from</span> <span class="nn">Decompilers.unpyc</span> <span class="kn">import</span> <span class="n">disasm</span>
+<span class="kn">from</span> <span class="nn">Decompilers.unpyc</span> <span class="kn">import</span> <span class="n">decompile</span>
+
+<div class="viewcode-block" id="CoParser"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.CoParser">[docs]</a><span class="k">class</span> <span class="nc">CoParser</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An equivilent to the Parser class in the parse module where rather than</span>
+<span class="sd">    parsing marshalled code objects we parse a raw code object.</span>
+<span class="sd">    The result being the creation of a PyCode object that UnPYC can</span>
+<span class="sd">    then do it&#39;s magic on</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+<div class="viewcode-block" id="CoParser.r_tuple"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.CoParser.r_tuple">[docs]</a>    <span class="k">def</span> <span class="nf">r_tuple</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Construct a PyTuple object from an existing tuple with each member</span>
+<span class="sd">        being set as a valid Py* type as well, so e.g. a PyTuple of</span>
+<span class="sd">        PyStrings</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">py_tuple</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">obj</span><span class="p">:</span>
+            <span class="c">##For each item in the tuple find it&#39;s type and create the</span>
+            <span class="c">## corresponding Py* type</span>
+            <span class="n">py_tuple</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="bp">self</span><span class="o">.</span><span class="n">r_object</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="p">)</span>
+            
+        <span class="k">return</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyTuple</span><span class="p">(</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">py_tuple</span><span class="p">)</span> <span class="p">)</span>
+    </div>
+    <span class="k">def</span> <span class="nf">r_code</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        
+        <span class="c">#print &quot;[*] argcount&quot;</span>
+        <span class="n">argcount</span>  <span class="o">=</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyLong</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">long</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">co_argcount</span><span class="p">),</span>  <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] nlocals&quot;</span>
+        <span class="n">nlocals</span>   <span class="o">=</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyLong</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">long</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">co_nlocals</span><span class="p">),</span>   <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] stacksize&quot;</span>
+        <span class="n">stacksize</span> <span class="o">=</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyLong</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">long</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">co_stacksize</span><span class="p">),</span> <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] flags&quot;</span>
+        <span class="n">flags</span>     <span class="o">=</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyLong</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">long</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">co_flags</span><span class="p">),</span>     <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] code&quot;</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyString</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">obj</span><span class="o">.</span><span class="n">co_code</span><span class="p">,</span> <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] consts&quot;</span>
+        <span class="n">consts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r_object</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">co_consts</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] names&quot;</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r_object</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">co_names</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] varnames&quot;</span>
+        <span class="n">varnames</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r_object</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">co_varnames</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] freevars&quot;</span>
+        <span class="n">freevars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r_object</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">co_freevars</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] cellvars&quot;</span>
+        <span class="n">cellvars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r_object</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">co_cellvars</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] filename&quot;</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyString</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">obj</span><span class="o">.</span><span class="n">co_filename</span><span class="p">,</span> <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] name&quot;</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyString</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">obj</span><span class="o">.</span><span class="n">co_name</span><span class="p">,</span> <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] firstlineno&quot;</span>
+        <span class="n">firstlineno</span> <span class="o">=</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyLong</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">long</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">co_firstlineno</span><span class="p">),</span> <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+        <span class="c">#print &quot;[*] lnotab&quot;</span>
+        <span class="n">lnotab</span> <span class="o">=</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyString</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">obj</span><span class="o">.</span><span class="n">co_lnotab</span><span class="p">,</span> <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyCode</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">argcount</span><span class="p">,</span> <span class="n">nlocals</span><span class="p">,</span>
+                              <span class="n">stacksize</span><span class="p">,</span> <span class="n">flags</span><span class="p">,</span> <span class="n">code</span><span class="p">,</span>
+                              <span class="n">consts</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span>
+                              <span class="n">varnames</span><span class="p">,</span> <span class="n">freevars</span><span class="p">,</span>
+                              <span class="n">cellvars</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span>
+                              <span class="n">name</span><span class="p">,</span> <span class="n">firstlineno</span><span class="p">,</span>
+                              <span class="n">lnotab</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">verboseDisasm</span><span class="p">,</span>
+                              <span class="bp">False</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">r_object</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        
+        
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">StringType</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyString</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+        
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">UnicodeType</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyUnicode</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+            
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">NoneType</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyNone</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">IntType</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyLong</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">long</span><span class="p">(</span><span class="n">obj</span><span class="p">),</span> <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+            
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">FloatType</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">parse</span><span class="o">.</span><span class="n">pyFloat</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">obj</span><span class="p">),</span> <span class="s">&quot;NA&quot;</span><span class="p">)</span>
+            
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">TupleType</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">r_tuple</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">CodeType</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">r_code</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+            <span class="c">#return parse.pyString(0, obj.co_code, &quot;NA&quot;)</span>
+            
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;UNKNOWN DATA TYPE: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">))</span>  
+            
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code_obj</span><span class="p">,</span> <span class="n">verboseDisasm</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Pass in an unmarshalled code object for decompilation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">verboseDisasm</span> <span class="o">=</span> <span class="n">verboseDisasm</span>
+        <span class="c">#TODO - generalise, make the functions below find the code obect</span>
+        <span class="c">#self.co = self.r_code(obj.func_code)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">co</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r_code</span><span class="p">(</span><span class="n">code_obj</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="bp">False</span>
+        
+
+
+<span class="c">#TODO - generators, decorators</span></div>
+<div class="viewcode-block" id="liveUnPYC"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.liveUnPYC">[docs]</a><span class="k">class</span> <span class="nc">liveUnPYC</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Traverse an object either in memory or from filesystem</span>
+<span class="sd">    and decompile back to source through accessing code objects</span>
+<span class="sd">    rather than .pyc files</span>
+<span class="sd">    </span>
+<span class="sd">    Relies on the UnPyc decompiler: http://unpyc.sourceforge.net/</span>
+<span class="sd">    </span>
+<span class="sd">    top_level_object - the object that will be treated as parent, anything</span>
+<span class="sd">                           not parented by this module will not be traversed</span>
+<span class="sd">                           stops you diving down rabbit holes with </span>
+<span class="sd">                           &#39;from foo import *&#39;</span>
+<span class="sd">                           </span>
+<span class="sd">                        Leave as None is you want to recurse</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pyretic</span><span class="p">,</span> <span class="n">top_level_module</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span> <span class="n">verbose</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span> <span class="n">debug</span> <span class="o">=</span> <span class="bp">True</span><span class="p">):</span>
+        
+        <span class="c">##The pyREtic instance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pyretic</span> <span class="o">=</span> <span class="n">pyretic</span>
+        
+        <span class="c">##The name of the module we are decompiling - stops us going into</span>
+        <span class="c">## objects imported to our top level name space e.g. from foo import *</span>
+        <span class="c">#TODO #__package__ ?</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">top_level_module</span> <span class="o">=</span> <span class="n">top_level_module</span>
+        
+        <span class="c">#TODO</span>
+        <span class="c">##Source code derived from our objects</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source_code</span>      <span class="o">=</span> <span class="s">&quot;&quot;</span>
+        
+        <span class="c">#TODO - do proper deindent</span>
+        <span class="c">##Current indentation level - increased / decreased by code below</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">indent</span> <span class="o">=</span> <span class="mi">0</span>
+           
+        <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span>   <span class="o">=</span> <span class="n">debug</span>
+
+                
+    <span class="k">def</span> <span class="nf">set_top_level_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mod_name</span><span class="p">):</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">top_level_module</span> <span class="o">=</span> <span class="n">mod_name</span>
+                
+        
+<div class="viewcode-block" id="liveUnPYC.fs_decompile"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.liveUnPYC.fs_decompile">[docs]</a>    <span class="k">def</span> <span class="nf">fs_decompile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mod_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Take an obfuscated .pyc file and decompile by grabbing the bytecode</span>
+<span class="sd">        and unmarshaling with the obfuscating Python runtimes own marshalling code</span>
+<span class="sd">        </span>
+<span class="sd">        The opcode remapping must already have taken place</span>
+<span class="sd">        </span>
+<span class="sd">        If you have access to to files/filesystem and the runtime allows you</span>
+<span class="sd">        access to it&#39;s marshaller module use this, you will get the best output</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">##Open obfusated file read in binary data</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">mod_f</span>  <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span><span class="s">&quot;rb&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem opening module &#39;</span><span class="si">%s</span><span class="s">&#39; : </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            <span class="k">return</span> <span class="s">&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">obf_bc</span> <span class="o">=</span> <span class="n">mod_f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="n">mod_f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem reading module &#39;</span><span class="si">%s</span><span class="s">&#39; : </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            <span class="k">return</span> <span class="s">&quot;&quot;</span>
+        
+        <span class="c">##Skip magic &amp; time stampe (first 8 bytes) &amp; unmarshel the series of </span>
+        <span class="c">## code objects</span>
+        <span class="c">##IF THE MARSHALLER HAS CHANGED YOU MUST USE THAT MARSHALER </span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">co</span><span class="o">=</span><span class="n">marshal</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">obf_bc</span><span class="p">[</span><span class="mi">8</span><span class="p">:])</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="n">mod_f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem unmarshaling module &#39;</span><span class="si">%s</span><span class="s">&#39; : </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            <span class="k">return</span> <span class="s">&quot;&quot;</span>
+            
+        
+        <span class="c">#if self.debug:</span>
+        <span class="c">#    raw_input(&quot;Decompiling: %s, Any key to proceed.... &quot;%mod_name)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">source_code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decompile</span><span class="p">(</span><span class="n">co</span><span class="p">,</span> <span class="n">identity</span> <span class="o">=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">-</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">co_filename</span><span class="p">,</span> <span class="n">co</span><span class="o">.</span><span class="n">co_name</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_code</span>
+
+    </div>
+<div class="viewcode-block" id="liveUnPYC.mem_decompile"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.liveUnPYC.mem_decompile">[docs]</a>    <span class="k">def</span> <span class="nf">mem_decompile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Take an object &amp; interogate it, do both decompilation of code objects</span>
+<span class="sd">        and source code reconstruction from live interactive querying</span>
+<span class="sd">        </span>
+<span class="sd">        obj - Python object to interogate for decompilation back to source</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">source_code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_py</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="c">##Top level unexpected exception handler .... decompiler not perfect!</span>
+            <span class="kn">import</span> <span class="nn">traceback</span>
+            
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_code</span>
+    
+
+    <span class="c">#TODO - ordering of: Imports, constants, classes, functions, </span></div>
+<div class="viewcode-block" id="liveUnPYC.get_py"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.liveUnPYC.get_py">[docs]</a>    <span class="k">def</span> <span class="nf">get_py</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">indent</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Determine the type of python object that has been passed and </span>
+<span class="sd">        as appropriate call a sub function to access the code object</span>
+<span class="sd">        and decompile that back to source</span>
+<span class="sd">        </span>
+<span class="sd">        Called recursively</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">print</span> <span class="s">&quot;[+] Object: &quot;</span><span class="p">,</span><span class="n">obj</span><span class="p">,</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        <span class="n">exclude_list</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;__builtins__&quot;</span><span class="p">,</span><span class="s">&quot;__class__&quot;</span><span class="p">,</span> <span class="s">&quot;__objclass__&quot;</span><span class="p">]</span> <span class="c">#__objclass__</span>
+
+        <span class="c">##The source code generated from this depth</span>
+        <span class="n">source_str</span> <span class="o">=</span> <span class="s">&quot;&quot;</span>
+            
+        <span class="c">##if the object passed in is not from the module we have set as top </span>
+        <span class="c">## level then skip it - stops us recursing off into from x imports</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s">&quot;__module__&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">top_level_module</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">obj</span><span class="o">.</span><span class="n">__module__</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">top_level_module</span><span class="p">:</span>
+                <span class="c"># TODO detect the from foo import bar &#39;as&#39; blah</span>
+                <span class="c"># TODO from imports on functions ---- don&#39;t think this is possible</span>
+                <span class="k">print</span> <span class="s">&quot;[-] NOT recursing into </span><span class="si">%s</span><span class="s"> module&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">__module__</span><span class="p">)</span>
+                
+                <span class="k">return</span> <span class="s">&quot;&quot;</span>
+            
+        <span class="c">##Now find what type of objects we have &amp; traverse to the code objects   </span>
+        
+        <span class="c">##First look at top level instances - not really decompilation, more</span>
+        <span class="c">## reconstruction from artefacts and analysis at run time</span>
+        <span class="c">#TODO seperate import analsysis from this</span>
+        <span class="n">source_str</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_instances</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">indent</span><span class="p">)</span>
+            
+        <span class="c">##Find and decompile all class objects (and their members)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">class_obj</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isclass</span><span class="p">):</span>
+            
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">exclude_list</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Class </span><span class="si">%s</span><span class="s"> found....&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">print</span> <span class="s">&quot;from file </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">class_obj</span><span class="o">.</span><span class="n">__module__</span><span class="p">)</span>
+            
+            <span class="c">##Get documentation</span>
+            <span class="n">doc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_doc</span><span class="p">(</span><span class="n">class_obj</span><span class="p">,</span> <span class="n">indent</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">top_level_module</span> <span class="ow">and</span> <span class="n">class_obj</span><span class="o">.</span><span class="n">__module__</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">top_level_module</span><span class="p">:</span>
+                
+                <span class="k">print</span> <span class="s">&quot;[-] NOT recursing into </span><span class="si">%s</span><span class="s"> module&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">class_obj</span><span class="o">.</span><span class="n">__module__</span><span class="p">)</span>
+                
+                <span class="c">##Must ? be a from foo import bar construct ?</span>
+                <span class="n">source_str</span> <span class="o">+=</span> <span class="s">&quot;from </span><span class="si">%s</span><span class="s"> import </span><span class="si">%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">class_obj</span><span class="o">.</span><span class="n">__module__</span><span class="p">,</span> 
+                                                    <span class="n">class_obj</span><span class="o">.</span><span class="n">__name__</span><span class="p">)</span>
+      
+                <span class="k">continue</span>
+            
+            <span class="c">##Get members of the class recursively</span>
+            <span class="n">content</span>    <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_class</span><span class="p">(</span><span class="n">class_obj</span><span class="p">,</span> <span class="n">indent</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">content</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="s">&quot;</span><span class="se">\n</span><span class="si">%s</span><span class="s">pass</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">%</span><span class="p">((</span><span class="n">indent</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span><span class="p">)</span>
+            <span class="n">superclasses</span> <span class="o">=</span> <span class="n">class_obj</span><span class="o">.</span><span class="n">__bases__</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">superclasses</span><span class="p">:</span>
+                <span class="n">source_str</span> <span class="o">+=</span> <span class="s">&quot;class </span><span class="si">%s</span><span class="s">:</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">source_str</span> <span class="o">+=</span> <span class="s">&quot;class </span><span class="si">%s</span><span class="s">(&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">superclasses</span><span class="p">:</span>
+                    <span class="n">source_str</span> <span class="o">+=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">, &quot;</span><span class="o">%</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">__name__</span><span class="p">)</span>
+                <span class="c">##remove final comma</span>
+                <span class="n">source_str</span> <span class="o">=</span> <span class="n">source_str</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>    
+                <span class="n">source_str</span> <span class="o">+=</span> <span class="s">&quot;):</span><span class="se">\n</span><span class="s">&quot;</span>
+    
+            <span class="n">source_str</span> <span class="o">+=</span> <span class="n">doc</span>
+            
+            <span class="c">##Get top class level attributes/instances</span>
+            <span class="n">source_str</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_instances</span><span class="p">(</span><span class="n">class_obj</span><span class="p">,</span> <span class="n">indent</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            
+            <span class="n">source_str</span> <span class="o">+=</span> <span class="n">content</span> <span class="o">+</span> <span class="s">&quot;</span><span class="se">\n\n</span><span class="s">&quot;</span>
+        
+        <span class="c">##Find and decompile all method objects</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">inspect</span><span class="o">.</span><span class="n">ismethod</span><span class="p">):</span>
+            
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">exclude_list</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Method </span><span class="si">%s</span><span class="s"> found....&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            
+            <span class="c">##Get the code from the method &amp; its arguments</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_method</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="n">indent</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> 
+            <span class="n">source_str</span> <span class="o">+=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">def </span><span class="si">%s</span><span class="s">(</span><span class="si">%s</span><span class="s">):</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span><span class="o">*</span><span class="n">indent</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_args</span><span class="p">(</span><span class="n">method</span><span class="p">))</span> 
+            
+            <span class="c">##Get documentation</span>
+            <span class="n">source_str</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_doc</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="n">indent</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            
+            <span class="n">source_str</span> <span class="o">+=</span> <span class="n">content</span> <span class="o">+</span> <span class="s">&quot;</span><span class="se">\n\n</span><span class="s">&quot;</span>
+            
+        <span class="c">##Find and decompile all function objects</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">function</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isfunction</span><span class="p">):</span>
+    
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">exclude_list</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Function </span><span class="si">%s</span><span class="s"> found....&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    
+            <span class="c">##Get the code from the function</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_func</span><span class="p">(</span><span class="n">function</span><span class="p">,</span> <span class="n">indent</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> 
+            <span class="n">source_str</span> <span class="o">+=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">def </span><span class="si">%s</span><span class="s">(</span><span class="si">%s</span><span class="s">):</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span><span class="o">*</span><span class="n">indent</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_args</span><span class="p">(</span><span class="n">function</span><span class="p">))</span>
+            
+            <span class="c">##Get documentation</span>
+            <span class="n">source_str</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_doc</span><span class="p">(</span><span class="n">function</span><span class="p">,</span> <span class="n">indent</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            
+            <span class="n">source_str</span> <span class="o">+=</span> <span class="n">content</span> <span class="o">+</span> <span class="s">&quot;</span><span class="se">\n\n</span><span class="s">&quot;</span>
+
+        <span class="k">return</span> <span class="n">source_str</span>
+    
+    
+    </div>
+<div class="viewcode-block" id="liveUnPYC.get_instances"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.liveUnPYC.get_instances">[docs]</a>    <span class="k">def</span> <span class="nf">get_instances</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">indent</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get all top level instances into a usable string form, do not show builtins etc</span>
+<span class="sd">        </span>
+<span class="sd">        http://docs.python.org/reference/datamodel.html</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">exclude_list</span> <span class="o">=</span>  <span class="p">[</span><span class="s">&quot;__builtins__&quot;</span><span class="p">,</span> <span class="s">&quot;__name__&quot;</span><span class="p">,</span> <span class="s">&quot;__file__&quot;</span><span class="p">,</span> <span class="s">&quot;__class__&quot;</span><span class="p">,</span> 
+                         <span class="s">&quot;__package__&quot;</span><span class="p">,</span>  <span class="s">&quot;__doc__&quot;</span><span class="p">,</span> <span class="s">&quot;__module__&quot;</span><span class="p">]</span>
+
+        
+        <span class="c">#TODO - how to get invocation args ?</span>
+        <span class="c">#       instances from other modules ?</span>
+        <span class="c">#       import &#39;from&#39; and &#39;as&#39; - must move to top of file (return as sep)</span>
+        <span class="c"># </span>
+        <span class="c"># decorators</span>
+        <span class="c"># nested functions ?</span>
+        <span class="c"># De-indent ?</span>
+        <span class="c"># Lambdas</span>
+        <span class="c">#globals ?</span>
+        
+        <span class="n">instances</span> <span class="o">=</span> <span class="s">&quot;&quot;</span>
+        <span class="n">pad</span> <span class="o">=</span> <span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span><span class="o">*</span><span class="n">indent</span>
+        
+        <span class="c">#TODO compensate for __slots__</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s">&quot;__dict__&quot;</span><span class="p">):</span>
+            <span class="k">print</span> <span class="s">&quot;[-] </span><span class="si">%s</span><span class="s"> has no __dict__&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+            <span class="k">return</span> <span class="s">&quot;&quot;</span>
+        
+        <span class="c">#http://mypythonnotes.wordpress.com/2008/09/04/__slots__/</span>
+        
+        <span class="k">for</span> <span class="n">inst</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            
+            <span class="c">##Exclude types that we decompile elsewhere or that are things</span>
+            <span class="c">## that don&#39;t show up in the source &amp; reflect the underlying objects</span>
+            <span class="k">if</span> <span class="n">inst</span> <span class="ow">in</span> <span class="n">exclude_list</span> <span class="ow">or</span>\
+               <span class="n">inspect</span><span class="o">.</span><span class="n">isfunction</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="ow">or</span>\
+               <span class="n">inspect</span><span class="o">.</span><span class="n">ismethod</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="ow">or</span>\
+               <span class="n">inspect</span><span class="o">.</span><span class="n">isclass</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="ow">or</span>\
+               <span class="n">inspect</span><span class="o">.</span><span class="n">isbuiltin</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="ow">or</span>\
+               <span class="n">inspect</span><span class="o">.</span><span class="n">ismethoddescriptor</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="ow">or</span>\
+               <span class="n">inspect</span><span class="o">.</span><span class="n">isgetsetdescriptor</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="ow">or</span>\
+               <span class="n">inspect</span><span class="o">.</span><span class="n">isdatadescriptor</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="ow">or</span>\
+               <span class="n">inspect</span><span class="o">.</span><span class="n">ismemberdescriptor</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+                <span class="k">continue</span>
+            
+            <span class="c">##If it&#39;s a generator find out which one - only available in &gt; 2.6</span>
+            <span class="k">elif</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span><span class="mi">5</span> <span class="ow">and</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isgenerator</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+                <span class="n">instances</span> <span class="o">+=</span> <span class="s">&quot;</span><span class="si">%s%s</span><span class="s"> = </span><span class="si">%s</span><span class="s">()</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">pad</span><span class="p">,</span> <span class="n">inst</span><span class="p">,</span> <span class="n">val</span><span class="o">.</span><span class="n">__name__</span><span class="p">)</span>
+                
+            
+            <span class="k">elif</span> <span class="n">inspect</span><span class="o">.</span><span class="n">ismodule</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+                <span class="c">#MUST be a better way than this ?</span>
+                <span class="n">module_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot; &quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;&#39;&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">)</span>
+                <span class="c">#</span>
+                <span class="n">instances</span> <span class="o">+=</span> <span class="s">&quot;import </span><span class="si">%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
+                                            
+            <span class="c">##Things that eval true as new/old class here but false for isclass</span>
+            <span class="c">## above are class invocations</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_new_style_class</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="p">:</span>
+                <span class="c">#MUST be a better way than this ?</span>
+                <span class="n">instance_of_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span> <span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot; &quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;&gt;&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;&#39;&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;&lt;&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">)</span>
+                <span class="n">parent_names</span> <span class="o">=</span> <span class="n">instance_of_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;.&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">obj</span><span class="o">.</span><span class="n">__name__</span> <span class="o">==</span> <span class="n">parent_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                    <span class="n">instance_of_name</span> <span class="o">=</span> <span class="s">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parent_names</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+                
+                <span class="n">instances</span> <span class="o">+=</span> <span class="s">&quot;</span><span class="si">%s%s</span><span class="s"> = </span><span class="si">%s</span><span class="s">()</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">pad</span><span class="p">,</span> <span class="n">inst</span><span class="p">,</span> <span class="n">instance_of_name</span><span class="p">)</span>
+                <span class="k">print</span> <span class="n">inst</span><span class="p">,</span><span class="n">val</span><span class="p">,</span><span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">),</span> <span class="nb">dir</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                <span class="k">print</span> <span class="s">&quot;new&quot;</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">_is_new_style_class</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                <span class="c">#TODO - put the repr i.e. str(val) in the comments after ?</span>
+                <span class="c">#raw_input(&quot;+=+=+=+= %s%s = %s() #!ARGS UNKNOWN!\n&quot;%(pad, inst, instance_of_name))</span>
+                
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_old_style_class</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">InstanceType</span><span class="p">:</span>
+                <span class="n">instance_of_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span> <span class="nb">str</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot; &quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;&gt;&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;&lt;&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">)</span>
+                <span class="n">parent_names</span> <span class="o">=</span> <span class="n">instance_of_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;.&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">obj</span><span class="o">.</span><span class="n">__name__</span> <span class="o">==</span> <span class="n">parent_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                    <span class="n">instance_of_name</span> <span class="o">=</span> <span class="s">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parent_names</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+                
+                <span class="n">instances</span> <span class="o">+=</span> <span class="s">&quot;</span><span class="si">%s%s</span><span class="s"> = </span><span class="si">%s</span><span class="s">()</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">pad</span><span class="p">,</span> <span class="n">inst</span><span class="p">,</span> <span class="n">instance_of_name</span><span class="p">)</span>
+                <span class="k">print</span> <span class="n">inst</span><span class="p">,</span><span class="n">val</span><span class="p">,</span><span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">),</span> <span class="nb">dir</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                <span class="k">print</span> <span class="s">&quot;old&quot;</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">_is_old_style_class</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                <span class="c">#TODO - put the repr i.e. str(val) in the comments after ?</span>
+                <span class="c">#raw_input(&quot;+=+=+=+= %s%s = %s() #!ARGS UNKNOWN!\n&quot;%(pad, inst, instance_of_name))</span>
+                
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c">##Variable a=1 or whatever</span>
+                <span class="k">print</span> <span class="s">&quot;++++++&quot;</span><span class="p">,</span><span class="n">val</span><span class="p">,</span><span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">StringType</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span> <span class="ow">in</span> <span class="n">val</span> <span class="ow">or</span> <span class="s">&quot;</span><span class="se">\r</span><span class="s">&quot;</span> <span class="ow">in</span> <span class="n">val</span><span class="p">:</span>
+                        <span class="n">val</span> <span class="o">=</span> <span class="s">&#39;&quot;&quot;&quot;</span><span class="si">%s</span><span class="s">&quot;&quot;&quot;&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="s">&quot;&#39;&quot;</span> <span class="ow">in</span> <span class="n">val</span><span class="p">:</span>
+                        <span class="n">val</span> <span class="o">=</span> <span class="s">&#39;&quot;</span><span class="si">%s</span><span class="s">&quot;&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                    <span class="k">else</span> <span class="p">:</span>
+                        <span class="n">val</span> <span class="o">=</span> <span class="s">&quot;&#39;</span><span class="si">%s</span><span class="s">&#39;&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                
+                <span class="n">instances</span> <span class="o">+=</span> <span class="s">&quot;</span><span class="si">%s%s</span><span class="s"> = </span><span class="si">%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">pad</span><span class="p">,</span> <span class="n">inst</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+            
+        <span class="k">return</span> <span class="n">instances</span><span class="o">+</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span>
+    </div>
+<div class="viewcode-block" id="liveUnPYC.get_doc"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.liveUnPYC.get_doc">[docs]</a>    <span class="k">def</span> <span class="nf">get_doc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">indent</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        My get doc function - wraps the inspect modules getdoc</span>
+<span class="sd">        but adds in indentation and triple quotes so we can drop into</span>
+<span class="sd">        a code listing</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">docstring</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getdoc</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">docstring</span><span class="p">:</span>
+            <span class="n">pad</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\n</span><span class="si">%s</span><span class="s">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">indent</span><span class="o">*</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span><span class="p">)</span>
+            <span class="n">idoc</span> <span class="o">=</span> <span class="n">indent</span><span class="o">*</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span> <span class="o">+</span> <span class="n">pad</span><span class="o">.</span><span class="n">join</span><span class="p">(</span> <span class="n">docstring</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">)</span> <span class="p">)</span>
+            <span class="k">return</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">&quot;&quot;&quot;</span><span class="se">\n</span><span class="si">%s</span><span class="se">\n</span><span class="si">%s</span><span class="s">&quot;&quot;&quot;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">indent</span><span class="o">*</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">idoc</span><span class="p">,</span> <span class="n">indent</span><span class="o">*</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s">&quot;&quot;</span>
+        </div>
+<div class="viewcode-block" id="liveUnPYC.get_args"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.liveUnPYC.get_args">[docs]</a>    <span class="k">def</span> <span class="nf">get_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        get the argument spec for a function / method</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">print</span> <span class="s">&quot;GETTING ARGS FOR&quot;</span><span class="p">,</span><span class="n">obj</span><span class="p">,</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        <span class="n">arg_spec</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getargspec</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+    
+        <span class="k">if</span> <span class="n">arg_spec</span><span class="p">[</span><span class="mi">3</span><span class="p">]:</span>
+            <span class="n">args_with_defaults</span> <span class="o">=</span> <span class="n">arg_spec</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">arg_spec</span><span class="p">[</span><span class="mi">3</span><span class="p">]):]</span>
+            <span class="n">default_pairs</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="n">args_with_defaults</span><span class="p">,</span> <span class="n">arg_spec</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">default_pairs</span> <span class="o">=</span> <span class="p">[]</span>
+                                
+        <span class="n">arg_str</span> <span class="o">=</span> <span class="s">&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">default_pairs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">arg_str</span> <span class="o">+=</span> <span class="s">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">arg_spec</span><span class="p">[</span><span class="mi">0</span><span class="p">][:</span><span class="nb">len</span><span class="p">(</span><span class="n">default_pairs</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                
+            <span class="c">#TODO respec to a .join logic</span>
+            <span class="k">for</span> <span class="n">def_pair</span> <span class="ow">in</span> <span class="n">default_pairs</span><span class="p">:</span>
+                <span class="n">arg_str</span> <span class="o">+=</span> <span class="s">&quot;, </span><span class="si">%s</span><span class="s">=</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">def_pair</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">def_pair</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">arg_str</span> <span class="o">+=</span> <span class="s">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">arg_spec</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            
+            
+        <span class="k">if</span> <span class="n">arg_spec</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">print</span> <span class="s">&quot;2&quot;</span><span class="p">,</span><span class="n">arg_spec</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">arg_str</span> <span class="o">+=</span> <span class="s">&quot;, *</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">arg_spec</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    
+        <span class="k">if</span> <span class="n">arg_spec</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span>
+            <span class="k">print</span> <span class="s">&quot;3&quot;</span><span class="p">,</span><span class="n">arg_spec</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">arg_str</span> <span class="o">+=</span> <span class="s">&quot;, **</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">arg_spec</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+            
+        <span class="k">return</span> <span class="n">arg_str</span>           
+        </div>
+<div class="viewcode-block" id="liveUnPYC.get_class"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.liveUnPYC.get_class">[docs]</a>    <span class="k">def</span> <span class="nf">get_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">indent</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Breaks a class into it&#39;s consituents: variables, functions etc</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#TODO get SUPERCLASSES, decorators ? </span>
+        <span class="c">##Call back into get_py to get the components of the class object, </span>
+        <span class="c">## classes in this sense are just a non top level container</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_py</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">indent</span><span class="p">)</span>
+        <span class="k">print</span> <span class="s">&quot;CLASS&quot;</span><span class="p">,</span><span class="n">obj</span><span class="o">.</span><span class="n">__name__</span>
+        <span class="c">#raw_input()</span>
+        <span class="k">return</span> <span class="n">source</span>
+    
+        </div>
+<div class="viewcode-block" id="liveUnPYC.get_method"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.liveUnPYC.get_method">[docs]</a>    <span class="k">def</span> <span class="nf">get_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">indent</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get access to the function object in a method</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">m_identity</span> <span class="o">=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">im_class</span><span class="p">,</span> <span class="n">obj</span><span class="o">.</span><span class="n">__name__</span><span class="p">)</span>
+        <span class="k">print</span> <span class="s">&quot;METHOD&quot;</span><span class="p">,</span><span class="n">m_identity</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_func</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">im_func</span><span class="p">,</span> <span class="n">indent</span><span class="p">,</span> <span class="n">m_identity</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[+]Method code:</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">source</span>
+    
+    </div>
+<div class="viewcode-block" id="liveUnPYC.get_func"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.liveUnPYC.get_func">[docs]</a>    <span class="k">def</span> <span class="nf">get_func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">indent</span><span class="p">,</span> <span class="n">identity</span> <span class="o">=</span> <span class="s">&quot;&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Decompiles an instantiated Python function object from</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identity</span><span class="p">:</span>
+            <span class="n">identity</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">__name__</span>
+            
+            <span class="k">print</span>  <span class="s">&quot;FUNCTION:&quot;</span><span class="p">,</span><span class="n">identity</span>
+        
+        <span class="n">source_code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decompile</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">func_code</span><span class="p">,</span> <span class="n">identity</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">source_code</span><span class="p">:</span>
+            <span class="n">source_code</span> <span class="o">=</span> <span class="n">source_code</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="n">source_code</span> <span class="o">=</span> <span class="n">source_code</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">)</span>
+            <span class="n">source_code</span> <span class="o">=</span> <span class="n">source_code</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\r</span><span class="s">&quot;</span><span class="p">)</span>
+            <span class="n">pad</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\n</span><span class="si">%s</span><span class="s">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">indent</span><span class="o">*</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">indent</span><span class="o">*</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span> <span class="o">+</span> <span class="n">pad</span><span class="o">.</span><span class="n">join</span><span class="p">(</span> <span class="n">source_code</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">)</span> <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s">&quot;&quot;</span>
+        </div>
+<div class="viewcode-block" id="liveUnPYC.get_generator"><a class="viewcode-back" href="../liveUnPYC.html#liveUnPYC.liveUnPYC.get_generator">[docs]</a>    <span class="k">def</span> <span class="nf">get_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">indent</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Decompiles a generator object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">source_code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decompile</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">gi_code</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">source_code</span><span class="p">:</span>
+            <span class="n">source_code</span> <span class="o">=</span> <span class="n">source_code</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="n">source_code</span> <span class="o">=</span> <span class="n">source_code</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">)</span>
+            <span class="n">source_code</span> <span class="o">=</span> <span class="n">source_code</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\r</span><span class="s">&quot;</span><span class="p">)</span>
+            <span class="n">pad</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\n</span><span class="si">%s</span><span class="s">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">indent</span><span class="o">*</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">indent</span><span class="o">*</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span> <span class="o">+</span> <span class="n">pad</span><span class="o">.</span><span class="n">join</span><span class="p">(</span> <span class="n">source_code</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">)</span> <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s">&quot;&quot;</span>
+    
+    </div>
+    <span class="k">def</span> <span class="nf">_decompile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code_obj</span><span class="p">,</span> <span class="n">identity</span><span class="p">,</span> <span class="n">verbose</span> <span class="o">=</span> <span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Do the in memory decompilation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">print</span> <span class="s">&quot;[=] Decompiling </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">identity</span><span class="p">)</span>
+       
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c">#parser = parse.Parser(f_code, raw=True)</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Parsing code object of </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">code_obj</span><span class="p">)</span>
+            <span class="n">parser</span> <span class="o">=</span> <span class="n">CoParser</span><span class="p">(</span><span class="n">code_obj</span><span class="p">,</span> <span class="n">verboseDisasm</span><span class="o">=</span><span class="n">verbose</span><span class="p">)</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Disassembling.... &quot;</span>
+            <span class="n">optimizingDisassembler</span> <span class="o">=</span> <span class="n">disasm</span><span class="o">.</span><span class="n">Disassembler</span><span class="p">(</span><span class="n">parser</span><span class="o">.</span><span class="n">co</span><span class="p">,</span>
+                                                       <span class="n">optimizeJumps</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Decompiling.... &quot;</span>        
+            <span class="n">decompiler</span> <span class="o">=</span> <span class="n">decompile</span><span class="o">.</span><span class="n">Decompiler</span><span class="p">(</span><span class="n">optimizingDisassembler</span><span class="p">)</span>
+            
+        <span class="c">#TODO - try and get code that was decompiled before error</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">parse</span><span class="o">.</span><span class="n">ParseErrorException</span><span class="p">,</span>
+                <span class="n">parse</span><span class="o">.</span><span class="n">IOErrorException</span><span class="p">,</span>
+                <span class="n">parse</span><span class="o">.</span><span class="n">BadFirstObjectException</span><span class="p">),</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">print</span> <span class="n">err</span>
+            <span class="k">return</span> <span class="s">&quot;&quot;</span>
+        
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&#39;&gt;&gt;&gt; Unexpected exception:&#39;</span>
+            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+            <span class="k">return</span> <span class="s">&quot;&quot;</span>
+    
+        <span class="n">sc</span> <span class="o">=</span> <span class="n">decompiler</span><span class="o">.</span><span class="n">decompile</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">sc</span>
+    
+    
+    <span class="k">def</span> <span class="nf">_is_new_style_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check to see if this is a new style class</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="s">&#39;__class__&#39;</span><span class="p">)</span> \
+               <span class="ow">and</span> <span class="p">(</span><span class="s">&#39;__dict__&#39;</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="n">cls</span><span class="p">)</span> \
+               <span class="ow">or</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="s">&#39;__slots__&#39;</span><span class="p">))</span>
+    
+    
+    <span class="k">def</span> <span class="nf">_is_old_style_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check to see if this is a old style class</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="s">&#39;__class__&#39;</span><span class="p">)</span> \
+               <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">cls</span><span class="p">)</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">InstanceType</span>
+        
+    
+    
+    
+</pre></div></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">pyREtic v5 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Rich Smith.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.5.
+    </div>
+  </body>
+</html>

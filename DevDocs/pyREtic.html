@@ -1,0 +1,235 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pyREtic &mdash; pyREtic v5 documentation</title>
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '5',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pyREtic v5 documentation" href="index.html" />
+    <link rel="next" title="REpdb" href="REpdb.html" />
+    <link rel="prev" title="Welcome to pyREtic’s documentation!" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="REpdb.html" title="REpdb"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to pyREtic’s documentation!"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">pyREtic v5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-pyREtic">
+<span id="pyretic"></span><h1>pyREtic<a class="headerlink" href="#module-pyREtic" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="pyREtic.pyREtic">
+<em class="property">class </em><tt class="descclassname">pyREtic.</tt><tt class="descname">pyREtic</tt><big>(</big><em>write_source=True</em>, <em>display_source=False</em>, <em>project_name='default'</em>, <em>project_root=None</em>, <em>decompiler='unpyc'</em><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Main pyREtic decompilation functionality
+Encompasses both a way to walk a series of objects (filesystem or memory)
+as well as the way in which the bytecode is obtained (via unmarshalling or importing)</p>
+<dl class="method">
+<dt id="pyREtic.pyREtic.blind_mirror">
+<tt class="descname">blind_mirror</tt><big>(</big><em>orig_module</em>, <em>debug=False</em><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.blind_mirror"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.blind_mirror" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mirror all the attributes of the module we are masquearding as so that we
+can be called as that module would be from other areas of the code and
+expected functionality is maintained</p>
+<dl class="docutils">
+<dt>IN:</dt>
+<dd>orig_module - the name of the module we are masquearding as - string</dd>
+<dt>OUT:</dt>
+<dd>True/False - success or failure - boolean</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.fs_objwalk">
+<tt class="descname">fs_objwalk</tt><big>(</big><em>fs_root</em>, <em>depth=None</em><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.fs_objwalk"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.fs_objwalk" title="Permalink to this definition">¶</a></dt>
+<dd><p>Walk the filesystem from start directory indicated &amp; to the depth indicated</p>
+<p>For each object and traverse into children and decompile - no unmarshaling</p>
+<p>No access to unmarshaling required</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.fs_unmarshal">
+<tt class="descname">fs_unmarshal</tt><big>(</big><em>fs_root</em>, <em>depth=None</em><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.fs_unmarshal"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.fs_unmarshal" title="Permalink to this definition">¶</a></dt>
+<dd><p>Walk the filesystem from start directory indicated &amp; to a depth inidicated</p>
+<p>The unmarshal technique will be used on each .pyc/.pyo found</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.get_dump_dir">
+<tt class="descname">get_dump_dir</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.get_dump_dir"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.get_dump_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get where the source code dump is</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.get_project">
+<tt class="descname">get_project</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.get_project"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.get_project" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the current project name</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.get_project_mod_dir">
+<tt class="descname">get_project_mod_dir</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.get_project_mod_dir"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.get_project_mod_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the directory for the project specific modules</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.get_projectdir">
+<tt class="descname">get_projectdir</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.get_projectdir"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.get_projectdir" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the directory for the project</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.get_projectroot">
+<tt class="descname">get_projectroot</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.get_projectroot"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.get_projectroot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get current project root</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.init_project">
+<tt class="descname">init_project</tt><big>(</big><em>py_ver</em><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.init_project"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.init_project" title="Permalink to this definition">¶</a></dt>
+<dd><p>Setup the initial project structure on the filesystem</p>
+<p>Return False on error &amp; True on successful creation of new project dirs</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.mem_objwalk">
+<tt class="descname">mem_objwalk</tt><big>(</big><em>obj</em><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.mem_objwalk"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.mem_objwalk" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pure in-memory decompile.</p>
+<p>Start at the specified object and traverse into children and decompile</p>
+<p>No file system access, marshal access or bytecode access required</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.new_project">
+<tt class="descname">new_project</tt><big>(</big><em>name</em>, <em>py_version=None</em><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.new_project"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.new_project" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new project, setting the version of python it is for to the version
+supplied</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.normalise_path">
+<tt class="descname">normalise_path</tt><big>(</big><em>path</em><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.normalise_path"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.normalise_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Try and expand environment variables and &#8216;~&#8217; etc that are in paths</p>
+<dl class="docutils">
+<dt>Return:</dt>
+<dd>expanded path - string</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.restore_previous_project_structure">
+<tt class="descname">restore_previous_project_structure</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.restore_previous_project_structure"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.restore_previous_project_structure" title="Permalink to this definition">¶</a></dt>
+<dd><p>If there was a problem creating the new project structure restore the previous values</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.set_projectroot">
+<tt class="descname">set_projectroot</tt><big>(</big><em>location</em><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.set_projectroot"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.set_projectroot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the root filesystem location for ALL projects, create on the filesystem
+if needed
+Calls set_projectdir to reassign &amp; create the projectdir/dumps dirs etc</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyREtic.pyREtic.switch_project">
+<tt class="descname">switch_project</tt><big>(</big><em>name</em>, <em>set_env=True</em><big>)</big><a class="reference internal" href="_modules/pyREtic.html#pyREtic.switch_project"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyREtic.pyREtic.switch_project" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set variable for the location of the project directory &amp; call init_project
+to initialise the whole project filesystem structure</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Welcome to pyREtic&#8217;s documentation!</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="REpdb.html"
+                        title="next chapter">REpdb</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/pyREtic.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="REpdb.html" title="REpdb"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to pyREtic’s documentation!"
+             >previous</a> |</li>
+        <li><a href="index.html">pyREtic v5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Rich Smith.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.5.
+    </div>
+  </body>
+</html>

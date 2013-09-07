@@ -1,0 +1,434 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>REpdb &mdash; pyREtic v5 documentation</title>
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '5',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pyREtic v5 documentation" href="index.html" />
+    <link rel="next" title="liveUnPYC" href="liveUnPYC.html" />
+    <link rel="prev" title="pyREtic" href="pyREtic.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="liveUnPYC.html" title="liveUnPYC"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="pyREtic.html" title="pyREtic"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">pyREtic v5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-REpdb">
+<span id="repdb"></span><h1>REpdb<a class="headerlink" href="#module-REpdb" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="REpdb.RePdb">
+<em class="property">class </em><tt class="descclassname">REpdb.</tt><tt class="descname">RePdb</tt><big>(</big><em>completekey='tab'</em>, <em>stdin=None</em>, <em>stdout=None</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extended pdb debugger with functionality useful when reverse engineering
+Python .pyc/.pyo files without the .py source</p>
+<dl class="method">
+<dt id="REpdb.RePdb.cleanup">
+<tt class="descname">cleanup</tt><big>(</big><em>args</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.cleanup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.cleanup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cleanup function, currently just stops the callgraph if it
+has been started</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.closest">
+<tt class="descname">closest</tt><big>(</big><em>target</em>, <em>collection</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.closest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.closest" title="Permalink to this definition">¶</a></dt>
+<dd><p>For a list of integers and a given value find the list element it&#8217;s closest to</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_auto_remap">
+<tt class="descname">do_auto_remap</tt><big>(</big><em>remapped_pycs</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_auto_remap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_auto_remap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make some best guesses on how to remap the opcodes from the currently
+running obfuscated runtime.</p>
+<p>NOTE: If there is an exiting auto_remap project it will be overwritten</p>
+<p>Usage: auto_remap &lt;path to remapped pycs&gt;</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_detect_version">
+<tt class="descname">do_detect_version</tt><big>(</big><em>args</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_detect_version"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_detect_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Try to determine the version of the running Python (the runtime we are injected into)</p>
+<p>If there is a mismatch between the different ways we can do this you will be prompted 
+to choose for yourself</p>
+<p>Usage: detect_version</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_download_runtime">
+<tt class="descname">do_download_runtime</tt><big>(</big><em>version</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_download_runtime"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_download_runtime" title="Permalink to this definition">¶</a></dt>
+<dd><p>Download the specified Python runtime sourcecode from python.org and decompress it.
+It is saved to the &#8216;Downloaded_Runtimes&#8217; subdir and shared between all projects</p>
+<p>Usage: download_runtime 2.5.4</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_fs_mem_decompile">
+<tt class="descname">do_fs_mem_decompile</tt><big>(</big><em>path=None</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_fs_mem_decompile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_fs_mem_decompile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decompile obfuscated bytecode by traversing the filesystem from a given
+start point but do NOT rely on the presence of the marshal module to be
+able to get thebytecode from the pyc file found. Instead each pyc found
+is imported and each of its objects are interogated for their bytecode. 
+These bytecode objects are what is decompiled.</p>
+<dl class="docutils">
+<dt>Note: If the current obfuscated runtime does not have the marshal module</dt>
+<dd>available but you do have access to the filesystem where the obfuscated
+pyc&#8217;s reside then this is the technique to use.</dd>
+</dl>
+<p>usage: fs_mem_decompile &lt;path to obfuscated pyc&#8217;s&gt;
+example: fs_mem_decompile /tmp/foo.app/Contents/Resources/runtime/site_packages/</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_fs_um_decompile">
+<tt class="descname">do_fs_um_decompile</tt><big>(</big><em>path=None</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_fs_um_decompile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_fs_um_decompile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decompile obfuscated bytecode by traversing the filesystem from a given
+start point and using the current runtimes marshal module to unmarshal
+the bytecode of each .pyc found.</p>
+<dl class="docutils">
+<dt>Note: If the current obfuscated runtime does not have the marshal module</dt>
+<dd>available then this decompilation technique cannot be used.</dd>
+</dl>
+<p>usage: fs_um_decompile &lt;path to obfuscated pyc&#8217;s&gt;
+example: fs_um_decompile /tmp/foo.app/Contents/Resources/runtime/site_packages/</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_gen_obf">
+<tt class="descname">do_gen_obf</tt><big>(</big><em>obfuscated_modules=None</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_gen_obf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_gen_obf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate obfuscated Python bytecode for the modules at the path 
+specified using the current runtime we are running from. 
+The generated bytecode will be used to diff against the 
+reference bytecode to deduce a modified opcode map. In general you
+should point this at the directory containing the obfuscated
+stdlib .pyc&#8217;s for the obfuscated runtime</p>
+<p>The more commonality between the reference and obfuscated bytecode there
+the higher the number of opcodes that will be able to be remapped.</p>
+<p>Usage:   gen_obf &lt;path to directory of obfusctaed python .pyc&#8217;s&gt;
+Example: gen_obf /tmp/foo.app/Contents/Resources/runtime/site_packages/</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_gen_ref">
+<tt class="descname">do_gen_ref</tt><big>(</big><em>reference_modules=None</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_gen_ref"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_gen_ref" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate reference bytecode from the .py&#8217;s at the path specified
+using the Python runtime version already set. If not path is specified
+the relevant Python runtime will be used if it has already been downloaded
+with download_runtime.</p>
+<p>The generated bytecode will be used to diff against the obfuscated
+bytecode to deduce a modified opcode map.
+The more commonality between the reference and obfuscated bytecode there
+the higher the number of opcodes that will be able to be remapped.</p>
+<dl class="docutils">
+<dt>Usage:   gen_ref  [to use the downloaded runtime of the current project </dt>
+<dd><blockquote class="first">
+version as the reference source]</blockquote>
+<p class="last">gen_ref &lt;path to directory of reference python source code&gt;</p>
+</dd>
+</dl>
+<p>Example: gen_ref /tmp/python2.5.4/Lib</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_get_version">
+<tt class="descname">do_get_version</tt><big>(</big><em>args</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_get_version"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_get_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the reported version of the currently executing Python runtime
+Note: This may not be accurate, a runtime can be made to report any version.</p>
+<blockquote>
+Use only as an indicator when choosing a reference runtime to use.</blockquote>
+<p>usage: get_version</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_is_remapped">
+<tt class="descname">do_is_remapped</tt><big>(</big><em>args=None</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_is_remapped"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_is_remapped" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determine if the current runtime has remapped its opcode table</p>
+<p>Usage: is_remapped</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_obj_mirror">
+<tt class="descname">do_obj_mirror</tt><big>(</big><em>args</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_obj_mirror"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_obj_mirror" title="Permalink to this definition">¶</a></dt>
+<dd><p>For the supplied object, all of it&#8217;s methods/attributes etc are mirrored
+in the calling objects namespace
+This is a dirty way of acting as an object proxy meaning we can be injected
+in place of another object and be sure we won&#8217;t break the larger app</p>
+<p>If no frame is specified then the frame from which the debugger was called is used
+If &#8220;debugger&#8221; is given as the frame the debugger frame is used</p>
+<p>Usage: obj_mirror &lt;instantiated object to mirror&gt;</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_pure_mem_decompile">
+<tt class="descname">do_pure_mem_decompile</tt><big>(</big><em>obj=None</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_pure_mem_decompile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_pure_mem_decompile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decompile to source code purely from instantiated objects. This assumes
+no availability of the marshal module or even access to the filesystem
+where the pyc files reside, this decompiles directly from the currently
+executing runtimes namespace.
+The specified object is decompiled and the objects it contains are traversed
+and decompiled until no more remain.</p>
+<p>[ Currently available objects can be seen by typing dir() at the REpdb prompt]</p>
+<p>usage: pure_mem_decompile &lt;name of object to decompile&gt;
+example: pure_mem_decompile AnObjectsName</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_recompile">
+<tt class="descname">do_recompile</tt><big>(</big><em>path</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_recompile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_recompile" title="Permalink to this definition">¶</a></dt>
+<dd><p>For the path specified do a recursive recompilation of all .py&#8217;s found
+using the current runtimes compiler (if available)</p>
+<p>Usage: recompile &lt;path to modules&gt;
+Example: recompile /tmp/python_254/Libs</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_remap">
+<tt class="descname">do_remap</tt><big>(</big><em>dirs=None</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_remap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_remap" title="Permalink to this definition">¶</a></dt>
+<dd><p>From the two sets of .pyb&#8217;s produced by gen_r2x and gen_o2x do the compares
+to work out the new opcode map. From this new opcode map create new files
+opcode.py (for the running stdlib) and opcodes.py (for UnPYC)</p>
+<p>Note: the .pyb&#8217;s must already have been generated from the gen_xxx calls</p>
+<p>Usage: remap</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_restore_opcodes">
+<tt class="descname">do_restore_opcodes</tt><big>(</big><em>args</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_restore_opcodes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_restore_opcodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Restore the original opcode.py and opcodes.py module that was archived by swap_opcodes</p>
+<p>Usage: restore_opcodes</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_set_callgraph_exclude">
+<tt class="descname">do_set_callgraph_exclude</tt><big>(</big><em>excludes</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_set_callgraph_exclude"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_set_callgraph_exclude" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set an exclusion filter for the callgraph functionality, this defines
+modules/functions that are not included in the callgraph tracing</p>
+<p>Argument is a comma seperated list of filter expresions</p>
+<p>Usage: set_callgraph_exclude foo,bar*,blat</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_set_project">
+<tt class="descname">do_set_project</tt><big>(</big><em>name</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_set_project"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_set_project" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new project or switch to an existing one</p>
+<p>Usage: set_project &lt;project name&gt;</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_set_py24">
+<tt class="descname">do_set_py24</tt><big>(</big><em>loc</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_set_py24"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_set_py24" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reset the location of the standard Python 2.4 runtime used to generate
+reference bytecode</p>
+<p>Usage: set_py24 /usr/local/bin/python2.4</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_set_py25">
+<tt class="descname">do_set_py25</tt><big>(</big><em>loc</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_set_py25"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_set_py25" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reset the location of the standard Python 2.5 runtime used to generate
+reference bytecode</p>
+<p>Usage: set_py25 /usr/local/bin/python2.5</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_set_py26">
+<tt class="descname">do_set_py26</tt><big>(</big><em>loc</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_set_py26"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_set_py26" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reset the location of the standard Python 2.6 runtime used to generate
+reference bytecode</p>
+<p>Usage: set_py26 /usr/local/bin/python2.6</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_set_py27">
+<tt class="descname">do_set_py27</tt><big>(</big><em>loc</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_set_py27"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_set_py27" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reset the location of the standard Python 2.7 runtime used to generate
+reference bytecode</p>
+<p>Usage: set_py27 /usr/local/bin/python2.7</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_set_version">
+<tt class="descname">do_set_version</tt><big>(</big><em>version</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_set_version"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_set_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the version number of the runtime we are running in to a specific value</p>
+<p>Usage: set_version 2.5.4</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_setprojectroot">
+<tt class="descname">do_setprojectroot</tt><big>(</big><em>location</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_setprojectroot"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_setprojectroot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Leave the project name the same but change the root directory location 
+on the filesystem. The currently set project is used as the project to relocate</p>
+<p>Usage: set_project_root /tmp/pyretic_dump</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_show">
+<tt class="descname">do_show</tt><big>(</big><em>args</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_show"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_show" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print out all the current settings for this REpdb project</p>
+<p>Usage: show</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_start_callgraph">
+<tt class="descname">do_start_callgraph</tt><big>(</big><em>name</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_start_callgraph"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_start_callgraph" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialise a callgraph trace using pycallgraph
+After this is set use the pdb commands &#8216;n&#8217;, &#8216;c&#8217; etc to step through
+the application being debugged and generate the callgraph</p>
+<p>The callgraph can be stopped &amp; written at anytime by &#8216;stop_callgraph&#8217;,
+if the debugging exits the callgraph is automatically stopped and written</p>
+<p>Usage: start_callgraph &lt;name of callgraph if you want non-default name&gt;</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_stop_callgraph">
+<tt class="descname">do_stop_callgraph</tt><big>(</big><em>foo</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_stop_callgraph"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_stop_callgraph" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop &amp; print callgraph</p>
+<p>Usage: stop_callgraph</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.do_swap_opcodes">
+<tt class="descname">do_swap_opcodes</tt><big>(</big><em>args=None</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.do_swap_opcodes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.do_swap_opcodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Swap the remapped opcodes.py module for the original module in the UnPYC
+directory. Until this is done UnPYC will not be able to decompile 
+correctly as it will be using the wrong opcode map. The opcodes.py file
+that will be used is the one that is located at the PROJECT_DIR/libs</p>
+<p>Ssage: swap_modules</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.does_project_exist">
+<tt class="descname">does_project_exist</tt><big>(</big><em>name</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.does_project_exist"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.does_project_exist" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determine whether a project of the given name already exists</p>
+<p>Return boolean</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.py_ver_downloaded">
+<tt class="descname">py_ver_downloaded</tt><big>(</big><em>ver</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.py_ver_downloaded"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.py_ver_downloaded" title="Permalink to this definition">¶</a></dt>
+<dd><p>Has the specifiedversion of Python already been downloaded ?</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.remap_complete">
+<tt class="descname">remap_complete</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.remap_complete"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.remap_complete" title="Permalink to this definition">¶</a></dt>
+<dd><p>For the current project has a re-mapped opcode table been generated, set var accordingly ?</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.set_py">
+<tt class="descname">set_py</tt><big>(</big><em>loc</em>, <em>ver</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.set_py"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.set_py" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the location of the python runtime for the specified version
+Called from the other do_set_py* functions</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.switch_project">
+<tt class="descname">switch_project</tt><big>(</big><em>name</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.switch_project"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.switch_project" title="Permalink to this definition">¶</a></dt>
+<dd><p>Switch to another project descriptor</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="REpdb.RePdb.trace_dispatch">
+<tt class="descname">trace_dispatch</tt><big>(</big><em>frame</em>, <em>event</em>, <em>arg</em><big>)</big><a class="reference internal" href="_modules/REpdb.html#RePdb.trace_dispatch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#REpdb.RePdb.trace_dispatch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Overide the bdb trace_dispatch method so as we can add in more
+trace hooks for other functionality such as call graphing</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="pyREtic.html"
+                        title="previous chapter">pyREtic</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="liveUnPYC.html"
+                        title="next chapter">liveUnPYC</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/REpdb.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="liveUnPYC.html" title="liveUnPYC"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="pyREtic.html" title="pyREtic"
+             >previous</a> |</li>
+        <li><a href="index.html">pyREtic v5 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Rich Smith.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.5.
+    </div>
+  </body>
+</html>

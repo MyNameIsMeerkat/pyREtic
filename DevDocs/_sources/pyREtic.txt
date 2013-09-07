@@ -1,0 +1,4 @@
+pyREtic
+===================
+.. automodule:: pyREtic
+   :members:

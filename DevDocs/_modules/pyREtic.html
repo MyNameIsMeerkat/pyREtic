@@ -1,0 +1,648 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pyREtic &mdash; pyREtic v5 documentation</title>
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '5',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="pyREtic v5 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">pyREtic v5 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for pyREtic</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/env python</span>
+<span class="c">##WingHeader v1 </span>
+<span class="c">###############################################################################</span>
+<span class="c">## File       :  pyREtic.py</span>
+<span class="c">## Description:  Main module of the pyREtic suite where decompilation and </span>
+<span class="c">##            :  source reconstruction logic lives</span>
+<span class="c">## Created_On :  Tue Aug  3 20:26:04 2010</span>
+<span class="c">## Created_By :  Rich Smith</span>
+<span class="c">## Modified_On:  Mon Dec  6 15:13:59 2010</span>
+<span class="c">## Modified_By:  Rich Smith</span>
+<span class="c">## License    :  GPLv3 (Docs/LICENSE.txt)</span>
+<span class="c">##</span>
+<span class="c">## (c) Copyright 2010, Rich Smith all rights reserved.</span>
+<span class="c">###############################################################################</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">os.path</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+
+ 
+<span class="c">##Allows easy relative writes to the location this dir later</span>
+<span class="n">MODULE_LOCATION</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">)</span>
+
+<div class="viewcode-block" id="pyREtic"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic">[docs]</a><span class="k">class</span> <span class="nc">pyREtic</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Main pyREtic decompilation functionality</span>
+<span class="sd">    Encompasses both a way to walk a series of objects (filesystem or memory)</span>
+<span class="sd">    as well as the way in which the bytecode is obtained (via unmarshalling or importing)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">write_source</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span> <span class="n">display_source</span> <span class="o">=</span> <span class="bp">False</span><span class="p">,</span>
+                 <span class="n">project_name</span> <span class="o">=</span> <span class="s">&quot;default&quot;</span><span class="p">,</span> <span class="n">project_root</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span> <span class="n">decompiler</span> <span class="o">=</span> <span class="s">&quot;unpyc&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set project name and where to dump the code produced</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="c">##What is the decompiler we are using</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">decompiler</span> <span class="o">=</span> <span class="n">decompiler</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">project_root</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">project_root</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_LOCATION</span><span class="p">,</span> <span class="s">&quot;Projects&quot;</span> <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">project_root</span> <span class="o">=</span> <span class="n">project_root</span>
+        
+        <span class="c">##These need to be set so that the fallback procedure for future name changes doesn&#39;t fail</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span> <span class="o">=</span> <span class="n">project_name</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">project_dir</span>  <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">project_root</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_projectroot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">project_root</span><span class="p">)</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">project_dir</span><span class="p">)</span>
+            <span class="c">##Project already exists - switching to it</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">switch_project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">project_name</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="c">##Project does not exist - create it</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">new_project</span><span class="p">(</span><span class="n">project_name</span><span class="p">)</span>
+        
+        <span class="c">#print &quot;[+] Outputting decompiled files to: %s&quot;%(self.dump_dir)</span>
+        
+        <span class="c">##How to use source code produced</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_sourcecode</span>   <span class="o">=</span> <span class="n">write_source</span>        
+        <span class="bp">self</span><span class="o">.</span><span class="n">display_sourcecode</span> <span class="o">=</span> <span class="n">display_source</span>  
+        
+        
+    <span class="k">def</span> <span class="nf">_quiet_makedir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dirname</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Make a dir, supress message if already exists</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">dirname</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s">&quot;Errno 17&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">):</span>
+                <span class="k">print</span> <span class="s">&quot;[-] Problem creating output directory &#39;</span><span class="si">%s</span><span class="s">&#39;: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">dirname</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+                <span class="k">raise</span>
+            
+<div class="viewcode-block" id="pyREtic.normalise_path"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.normalise_path">[docs]</a>    <span class="k">def</span> <span class="nf">normalise_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Try and expand environment variables and &#39;~&#39; etc that are in paths</span>
+<span class="sd">        </span>
+<span class="sd">        Return:</span>
+<span class="sd">               expanded path - string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expandvars</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+        
+
+<span class="c">##    def set_project(self, name):</span>
+<span class="c">##        &quot;&quot;&quot;</span>
+<span class="c">##        Set the variable for the *name* of the project &amp; alter the filesyetm </span>
+<span class="c">##        location accordingly</span>
+<span class="c">##        Calls set_projectdir</span>
+<span class="c">##        &quot;&quot;&quot;</span>
+<span class="c">##        self.prev_project_name = self.get_project()</span>
+<span class="c">##        </span>
+<span class="c">##        self.project_name = name.strip(os.sep)</span>
+<span class="c">##        </span>
+<span class="c">##        ##Adjust the project dir and sourcode dump within project dir accordingly</span>
+<span class="c">##        return self.set_projectdir()</span>
+        
+        </div>
+<div class="viewcode-block" id="pyREtic.get_project"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.get_project">[docs]</a>    <span class="k">def</span> <span class="nf">get_project</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the current project name</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span>  
+    
+    </div>
+<div class="viewcode-block" id="pyREtic.switch_project"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.switch_project">[docs]</a>    <span class="k">def</span> <span class="nf">switch_project</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">set_env</span> <span class="o">=</span> <span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set variable for the location of the project directory &amp; call init_project</span>
+<span class="sd">        to initialise the whole project filesystem structure</span>
+<span class="sd">        </span>
+<span class="sd"> </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prev_project_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_project</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">)</span>
+        
+        <span class="c">##Store previous location of the project dir</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prev_project_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">()</span>
+        
+        <span class="c">##project directory location</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">project_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">project_root</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span><span class="p">)</span>
+        
+        <span class="c">##sourcode dump location inside project</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dump_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">project_dir</span><span class="p">,</span> <span class="s">&quot;sourcecode&quot;</span><span class="p">)</span>
+        
+        <span class="c">## Alter the python path to reference the new project libs dir to allow</span>
+        <span class="c">## overiding of modules (e.g. opcode.py) + remove previous project dirs</span>
+        <span class="k">if</span> <span class="n">set_env</span><span class="p">:</span>
+            
+            <span class="n">old_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prev_project_dir</span><span class="p">,</span> <span class="s">&quot;libs&quot;</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">old_path</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+                <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">old_path</span><span class="p">)</span>
+            
+            <span class="n">sys</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;libs&quot;</span><span class="p">)</span> <span class="p">]</span> <span class="o">+</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span>
+                    
+       
+    
+    </div>
+<div class="viewcode-block" id="pyREtic.get_projectdir"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.get_projectdir">[docs]</a>    <span class="k">def</span> <span class="nf">get_projectdir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the directory for the project</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_dir</span>
+    
+    </div>
+<div class="viewcode-block" id="pyREtic.new_project"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.new_project">[docs]</a>    <span class="k">def</span> <span class="nf">new_project</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">py_version</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a new project, setting the version of python it is for to the version</span>
+<span class="sd">        supplied</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="bp">self</span><span class="o">.</span><span class="n">switch_project</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="bp">False</span><span class="p">)</span>
+        
+        <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_project</span><span class="p">(</span><span class="n">py_version</span><span class="p">)</span>
+        
+        <span class="c">## Alter the python path to reference the new project libs dir to allow</span>
+        <span class="c">## overiding of modules (e.g. opcode.py) + remove previous project dirs</span>
+        <span class="k">if</span> <span class="n">ret</span><span class="p">:</span>
+            
+            <span class="n">old_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prev_project_dir</span><span class="p">,</span> <span class="s">&quot;libs&quot;</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">old_path</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+                <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">old_path</span><span class="p">)</span>
+            
+            <span class="n">sys</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;libs&quot;</span><span class="p">)</span> <span class="p">]</span> <span class="o">+</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span>
+                    
+        <span class="k">return</span> <span class="n">ret</span>
+    
+    </div>
+<div class="viewcode-block" id="pyREtic.get_project_mod_dir"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.get_project_mod_dir">[docs]</a>    <span class="k">def</span> <span class="nf">get_project_mod_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the directory for the project specific modules</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">project_dir</span><span class="p">,</span> <span class="s">&quot;libs&quot;</span><span class="p">)</span>
+                
+    </div>
+<div class="viewcode-block" id="pyREtic.set_projectroot"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.set_projectroot">[docs]</a>    <span class="k">def</span> <span class="nf">set_projectroot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set the root filesystem location for ALL projects, create on the filesystem</span>
+<span class="sd">        if needed</span>
+<span class="sd">        Calls set_projectdir to reassign &amp; create the projectdir/dumps dirs etc</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">##Store previous location of the project root</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prev_project_root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_projectroot</span><span class="p">()</span>
+        
+        <span class="n">location</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalise_path</span><span class="p">(</span><span class="n">location</span><span class="p">)</span>
+        
+        <span class="c">##Create the root location for ALL projects</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_quiet_makedir</span><span class="p">(</span><span class="n">location</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">project_root</span> <span class="o">=</span> <span class="n">location</span>
+                
+        <span class="c">##Adjust the project dir and sourcode dump within project dir accordingly</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">switch_project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_project</span><span class="p">())</span>
+                
+                </div>
+<div class="viewcode-block" id="pyREtic.get_projectroot"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.get_projectroot">[docs]</a>    <span class="k">def</span> <span class="nf">get_projectroot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get current project root</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_root</span>
+        
+        </div>
+<div class="viewcode-block" id="pyREtic.get_dump_dir"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.get_dump_dir">[docs]</a>    <span class="k">def</span> <span class="nf">get_dump_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get where the source code dump is </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dump_dir</span>
+        
+    </div>
+<div class="viewcode-block" id="pyREtic.init_project"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.init_project">[docs]</a>    <span class="k">def</span> <span class="nf">init_project</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">py_ver</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Setup the initial project structure on the filesystem</span>
+<span class="sd">        </span>
+<span class="sd">        Return False on error &amp; True on successful creation of new project dirs </span>
+<span class="sd">        &quot;&quot;&quot;</span> 
+        <span class="c">#TODO - initial project creation when py_ver unknown </span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">py_ver</span><span class="p">:</span>
+            <span class="c">##initial default project with no version has been set - just use 2.5.4 modules and hope....</span>
+            <span class="n">py_ver</span> <span class="o">=</span> <span class="s">&quot;default&quot;</span>
+            
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c">##Create dir structure on fs</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_quiet_makedir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;sourcecode&quot;</span><span class="p">)</span> <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_quiet_makedir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;pybs&quot;</span><span class="p">)</span> <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_quiet_makedir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;libs&quot;</span><span class="p">)</span> <span class="p">)</span>
+            
+            <span class="c">##Create __init__.py&#39;s for dirs from which imports may occur</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;libs&quot;</span><span class="p">,</span> <span class="s">&quot;__init__.py&quot;</span><span class="p">),</span><span class="s">&quot;wb&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;__init__.py&quot;</span><span class="p">),</span><span class="s">&quot;wb&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            
+            <span class="c">#TODO - 2.7 support, change to just copy entire module set ?</span>
+            <span class="n">rt_root</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_LOCATION</span><span class="p">,</span> <span class="s">&quot;Downloaded_Runtimes&quot;</span><span class="p">,</span><span class="s">&quot;Python-</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">py_ver</span><span class="p">))</span>
+            
+            <span class="n">stdlib_files</span> <span class="o">=</span> <span class="p">{</span><span class="s">&quot;default&quot;</span> <span class="p">:</span> <span class="p">[</span><span class="s">&quot;compileall.py&quot;</span><span class="p">,</span> <span class="s">&quot;copy.py&quot;</span><span class="p">,</span> <span class="s">&quot;dis.py&quot;</span><span class="p">,</span> <span class="s">&quot;inspect.py&quot;</span><span class="p">,</span> <span class="s">&quot;opcode.py&quot;</span><span class="p">,</span>
+                                         <span class="s">&quot;py_compile.py&quot;</span><span class="p">,</span> <span class="s">&quot;struct.py&quot;</span><span class="p">,</span> <span class="s">&quot;token.py&quot;</span><span class="p">,</span> <span class="s">&quot;tokenize.py&quot;</span><span class="p">,</span>
+                                         <span class="s">&quot;traceback.py&quot;</span><span class="p">,</span> <span class="s">&quot;types.py&quot;</span><span class="p">],</span>
+                            <span class="s">&quot;2.5&quot;</span>     <span class="p">:</span> <span class="p">[</span><span class="s">&quot;compileall.py&quot;</span><span class="p">,</span> <span class="s">&quot;copy.py&quot;</span><span class="p">,</span> <span class="s">&quot;dis.py&quot;</span><span class="p">,</span> <span class="s">&quot;inspect.py&quot;</span><span class="p">,</span> <span class="s">&quot;opcode.py&quot;</span><span class="p">,</span>
+                                         <span class="s">&quot;py_compile.py&quot;</span><span class="p">,</span> <span class="s">&quot;struct.py&quot;</span><span class="p">,</span> <span class="s">&quot;token.py&quot;</span><span class="p">,</span> <span class="s">&quot;tokenize.py&quot;</span><span class="p">,</span>
+                                         <span class="s">&quot;traceback.py&quot;</span><span class="p">,</span> <span class="s">&quot;types.py&quot;</span><span class="p">],</span>
+                            <span class="s">&quot;2.6&quot;</span>     <span class="p">:</span> <span class="p">[</span><span class="s">&quot;_abcoll.py&quot;</span><span class="p">,</span> <span class="s">&quot;abc.py&quot;</span><span class="p">,</span> <span class="s">&quot;collections.py&quot;</span><span class="p">,</span> <span class="s">&quot;compileall.py&quot;</span><span class="p">,</span> 
+                                         <span class="s">&quot;dis.py&quot;</span><span class="p">,</span> <span class="s">&quot;inspect.py&quot;</span><span class="p">,</span> <span class="s">&quot;opcode.py&quot;</span><span class="p">,</span> <span class="s">&quot;py_compile.py&quot;</span><span class="p">,</span>
+                                         <span class="s">&quot;traceback.py&quot;</span><span class="p">,</span> <span class="s">&quot;types.py&quot;</span><span class="p">]}</span>
+            
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">stdlib_files</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">py_ver</span><span class="p">:</span>
+                    <span class="k">continue</span>
+               
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">stdlib_files</span><span class="p">[</span><span class="n">k</span><span class="p">]:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">shutil</span><span class="o">.</span><span class="n">copyfile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">rt_root</span><span class="p">,</span> <span class="s">&quot;Lib&quot;</span><span class="p">,</span> <span class="n">f</span><span class="p">),</span> 
+                                        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;libs&quot;</span><span class="p">,</span> <span class="n">f</span><span class="p">))</span>
+                    <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+                        <span class="k">print</span> <span class="s">&quot;[-] Problem copying one of the stdlib files for project library: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] version of Python </span><span class="si">%s</span><span class="s"> not supported. Add files to project library by hand&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">py_ver</span><span class="p">)</span>
+               
+            <span class="c">##Copy the opcodes .py for unpyc</span>
+            <span class="c">#TODO - seperate decompiler specific code from main into specific stubs for each</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">decompiler</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s">&quot;unpyc&quot;</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="c">##Copy the unpyc opcode table into the project libs</span>
+                    <span class="n">shutil</span><span class="o">.</span><span class="n">copyfile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_LOCATION</span><span class="p">,</span> <span class="s">&quot;Decompilers&quot;</span><span class="p">,</span><span class="s">&quot;unpyc&quot;</span><span class="p">,</span> <span class="s">&quot;opcodes.py&quot;</span><span class="p">),</span> 
+                                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;libs&quot;</span><span class="p">,</span> <span class="s">&quot;opcodes.py&quot;</span><span class="p">))</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+                    <span class="k">print</span> <span class="s">&quot;[-] Problem copying opocdes.py for unpyc: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+                    <span class="k">print</span> <span class="s">&quot;[!] You must copy an appropriate opocdes.py to </span><span class="si">%s</span><span class="s"> by hand&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;libs&quot;</span><span class="p">))</span>
+                    
+            <span class="c">##Save version to the project as this may be ifferent than what the runtime reports</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_projectdir</span><span class="p">(),</span> <span class="s">&quot;meta&quot;</span><span class="p">),</span> <span class="s">&quot;w&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&quot;version:</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">py_ver</span><span class="p">))</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] Problem writing project meta data : </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+            
+            <span class="k">return</span> <span class="bp">True</span>
+            
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem creating project directory structure: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">restore_previous_project_structure</span><span class="p">()</span>
+            <span class="k">return</span> <span class="bp">False</span>
+        
+        
+        </div>
+<div class="viewcode-block" id="pyREtic.restore_previous_project_structure"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.restore_previous_project_structure">[docs]</a>    <span class="k">def</span> <span class="nf">restore_previous_project_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        If there was a problem creating the new project structure restore the previous values</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prev_project_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">project_dir</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prev_project_dir</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">project_root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prev_project_root</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dump_dir</span>     <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prev_project_dir</span><span class="p">,</span> <span class="s">&quot;sourcecode&quot;</span><span class="p">)</span>
+        
+    </div>
+<div class="viewcode-block" id="pyREtic.fs_unmarshal"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.fs_unmarshal">[docs]</a>    <span class="k">def</span> <span class="nf">fs_unmarshal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fs_root</span><span class="p">,</span> <span class="n">depth</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Walk the filesystem from start directory indicated &amp; to a depth inidicated</span>
+<span class="sd">        </span>
+<span class="sd">        The unmarshal technique will be used on each .pyc/.pyo found</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#TODO depth, make decompiler independent</span>
+        <span class="kn">from</span> <span class="nn">Decompilers.unpyc</span> <span class="kn">import</span> <span class="n">liveUnPYC</span> <span class="k">as</span> <span class="n">live</span>
+        
+        <span class="n">tag</span> <span class="o">=</span> <span class="s">&quot;fs_um&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_quiet_makedir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dump_dir</span><span class="p">,</span> <span class="n">tag</span><span class="p">))</span>
+        
+        <span class="n">lupc</span> <span class="o">=</span> <span class="n">live</span><span class="o">.</span><span class="n">liveUnPYC</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        
+        <span class="n">fs_root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalise_path</span><span class="p">(</span><span class="n">fs_root</span><span class="p">)</span>
+
+        <span class="c">##Single file supplied no need to walk the directory</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">fs_root</span><span class="p">):</span>
+            
+            <span class="k">print</span> <span class="s">&quot;[+] Decompiling single file: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">fs_root</span><span class="p">)</span>
+            <span class="n">sc</span>   <span class="o">=</span> <span class="n">lupc</span><span class="o">.</span><span class="n">fs_decompile</span><span class="p">(</span><span class="n">fs_root</span><span class="p">)</span>
+            
+            <span class="c">##Do the output style specified</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_sourcecode</span><span class="p">:</span>
+                <span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">fs_root</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_write_source</span><span class="p">(</span><span class="n">sc</span><span class="p">,</span> <span class="s">&quot;singlefile&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span>
+                
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_sourcecode</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_display_source</span><span class="p">(</span><span class="n">sc</span><span class="p">)</span>
+             
+            
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Decompiling directory starting at: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">fs_root</span><span class="p">)</span>
+            <span class="k">for</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">pyx</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fs_walk</span><span class="p">(</span><span class="n">fs_root</span><span class="p">,</span> <span class="n">depth</span><span class="p">,</span> <span class="n">tag</span><span class="p">):</span>
+        
+                <span class="k">print</span> <span class="s">&quot;[+] Decompiling via unmarshal &#39;</span><span class="si">%s</span><span class="s">&#39;....&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">pyx</span><span class="p">)</span>
+                <span class="n">sc</span>   <span class="o">=</span> <span class="n">lupc</span><span class="o">.</span><span class="n">fs_decompile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="n">pyx</span><span class="p">))</span>
+                
+                <span class="c">##Do the output style specified</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_sourcecode</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_write_source</span><span class="p">(</span><span class="n">sc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">pyx</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span>
+                    
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_sourcecode</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_display_source</span><span class="p">(</span><span class="n">sc</span><span class="p">)</span>
+
+                    </div>
+<div class="viewcode-block" id="pyREtic.fs_objwalk"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.fs_objwalk">[docs]</a>    <span class="k">def</span> <span class="nf">fs_objwalk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fs_root</span><span class="p">,</span>  <span class="n">depth</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Walk the filesystem from start directory indicated &amp; to the depth indicated</span>
+<span class="sd">        </span>
+<span class="sd">        For each object and traverse into children and decompile - no unmarshaling</span>
+<span class="sd">        </span>
+<span class="sd">        No access to unmarshaling required </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#TODO depth, make decompiler independent</span>
+        <span class="kn">from</span> <span class="nn">Decompilers.unpyc</span> <span class="kn">import</span> <span class="n">liveUnPYC</span> <span class="k">as</span> <span class="n">live</span>
+        
+        <span class="n">tag</span> <span class="o">=</span> <span class="s">&quot;fs_obj&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_quiet_makedir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dump_dir</span><span class="p">,</span> <span class="n">tag</span><span class="p">))</span>
+        
+        <span class="n">lupc</span> <span class="o">=</span> <span class="n">live</span><span class="o">.</span><span class="n">liveUnPYC</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        
+        <span class="n">fs_root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalise_path</span><span class="p">(</span><span class="n">fs_root</span><span class="p">)</span>
+        
+        <span class="c">##Single file supplied no need to walk the directory</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">fs_root</span><span class="p">):</span>
+            
+            <span class="c">#TODO single file memory traversal</span>
+            <span class="k">print</span> <span class="s">&quot;[-] single file memory traversal not supported yet&quot;</span>
+            <span class="k">return</span>
+        
+        <span class="k">for</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">pyx</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fs_walk</span><span class="p">(</span><span class="n">fs_root</span><span class="p">,</span> <span class="n">depth</span><span class="p">,</span> <span class="n">tag</span><span class="p">):</span>
+            
+            <span class="k">print</span> <span class="s">&quot;[+] Decompiling in-memory &#39;</span><span class="si">%s</span><span class="s">&#39;....&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">pyx</span><span class="p">)</span>
+            
+            <span class="n">subpath</span><span class="p">,</span> <span class="n">package</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s">&quot;/&quot;</span><span class="p">))</span>
+            <span class="c">##Lazy, add path at start of path for eay import</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">subpath</span><span class="p">)</span>
+            
+            
+            <span class="c">##Attempt to import the .pyc/.pyo</span>
+            <span class="n">to_import</span> <span class="o">=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">pyx</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c">#TODO - account for relative imports ?</span>
+                <span class="k">print</span> <span class="s">&quot;[+] Importing: from </span><span class="si">%s</span><span class="s"> import </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">pyx</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">p_obj</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="nb">globals</span><span class="p">(),</span> <span class="nb">locals</span><span class="p">(),</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">pyx</span><span class="p">)[</span><span class="mi">0</span><span class="p">]],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="n">p_obj</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="s">&quot;p_obj.</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">pyx</span><span class="p">)[</span><span class="mi">0</span><span class="p">]))</span>
+                <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">ImportError</span><span class="p">):</span>
+                    <span class="nb">__import__</span><span class="p">(</span><span class="n">pyx</span><span class="p">)</span>
+                    <span class="n">p_obj</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="n">pyx</span><span class="p">]</span>
+                    
+                <span class="k">print</span> <span class="s">&quot;[+] Imported </span><span class="si">%s</span><span class="s">  &quot;</span><span class="o">%</span><span class="p">(</span><span class="n">p_obj</span><span class="p">)</span>
+
+
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;[-] Error importing </span><span class="si">%s</span><span class="s"> : </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">to_import</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+                <span class="kn">import</span> <span class="nn">traceback</span>
+                <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+                <span class="nb">raw_input</span><span class="p">()</span>
+                
+                <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">subpath</span><span class="p">)</span>
+                <span class="k">continue</span>
+                
+   
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c">##Pure memory decompile</span>
+                <span class="n">lupc</span><span class="o">.</span><span class="n">set_top_level_module</span><span class="p">(</span><span class="n">p_obj</span><span class="o">.</span><span class="n">__name__</span><span class="p">)</span>
+                <span class="n">sc</span>   <span class="o">=</span> <span class="n">lupc</span><span class="o">.</span><span class="n">get_py</span><span class="p">(</span><span class="n">p_obj</span><span class="p">)</span>
+
+                
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+                <span class="kn">import</span> <span class="nn">traceback</span>
+                <span class="k">print</span> <span class="s">&quot;[-] Error decompiling </span><span class="si">%s</span><span class="s"> : </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">p_obj</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+                <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+                <span class="k">continue</span>
+    
+            
+            <span class="c">##Do the output style specified</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_sourcecode</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_write_source</span><span class="p">(</span><span class="n">sc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">pyx</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span>
+                
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_sourcecode</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_display_source</span><span class="p">(</span><span class="n">sc</span><span class="p">)</span>
+                
+                
+            <span class="c">##Keep syspath clean - remove what we added</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">subpath</span><span class="p">)</span> 
+            
+                    </div>
+<div class="viewcode-block" id="pyREtic.mem_objwalk"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.mem_objwalk">[docs]</a>    <span class="k">def</span> <span class="nf">mem_objwalk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Pure in-memory decompile.</span>
+<span class="sd">        </span>
+<span class="sd">        Start at the specified object and traverse into children and decompile</span>
+<span class="sd">        </span>
+<span class="sd">        No file system access, marshal access or bytecode access required</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#TODO make decompiler independent</span>
+        <span class="kn">from</span> <span class="nn">Decompilers.unpyc</span> <span class="kn">import</span> <span class="n">liveUnPYC</span> <span class="k">as</span> <span class="n">live</span>
+        
+        <span class="n">tag</span> <span class="o">=</span> <span class="s">&quot;mem_obj&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_quiet_makedir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dump_dir</span><span class="p">,</span> <span class="n">tag</span><span class="p">))</span>
+        
+        <span class="c">## No top level module specified so EVERYTHING encountered will be</span>
+        <span class="c">## decompiled .....may take a while</span>
+        <span class="n">lupc</span> <span class="o">=</span> <span class="n">live</span><span class="o">.</span><span class="n">liveUnPYC</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> 
+        <span class="n">sc</span>   <span class="o">=</span> <span class="n">lupc</span><span class="o">.</span><span class="n">get_py</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        
+        <span class="c">##Do the output style specified</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">.py&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">__name__</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">.py&quot;</span><span class="o">%</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">obj</span><span class="p">))</span>
+            
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_sourcecode</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_source</span><span class="p">(</span><span class="n">sc</span><span class="p">,</span> <span class="s">&quot;&quot;</span><span class="p">,</span> <span class="n">name</span> <span class="p">,</span> <span class="n">tag</span><span class="p">)</span>
+            
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_sourcecode</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_display_source</span><span class="p">(</span><span class="n">sc</span><span class="p">)</span>
+
+                    
+                    </div>
+<div class="viewcode-block" id="pyREtic.blind_mirror"><a class="viewcode-back" href="../pyREtic.html#pyREtic.pyREtic.blind_mirror">[docs]</a>    <span class="k">def</span> <span class="nf">blind_mirror</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">orig_module</span><span class="p">,</span> <span class="n">debug</span> <span class="o">=</span> <span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Mirror all the attributes of the module we are masquearding as so that we</span>
+<span class="sd">        can be called as that module would be from other areas of the code and</span>
+<span class="sd">        expected functionality is maintained</span>
+<span class="sd">        </span>
+<span class="sd">        IN:</span>
+<span class="sd">           orig_module - the name of the module we are masquearding as - string</span>
+<span class="sd">        OUT:</span>
+<span class="sd">           True/False - success or failure - boolean</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">orig</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">orig_module</span><span class="p">)</span>
+        <span class="n">orig</span><span class="o">.</span><span class="n">__name__</span> <span class="o">=</span> <span class="s">&quot;orig&quot;</span>
+        
+        <span class="k">for</span> <span class="n">atrr</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="n">orig</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">attr</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="s">&quot;__&quot;</span><span class="p">:</span>
+                <span class="k">continue</span>
+        
+            <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s"> -&gt; </span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">attr</span><span class="p">,</span> <span class="n">attr</span><span class="o">.</span><span class="n">__file__</span><span class="p">,</span> <span class="n">attr</span><span class="p">)</span>
+            <span class="k">exec</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%s</span><span class="s"> = orig.</span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">attr</span><span class="p">,</span> <span class="n">attr</span><span class="p">))</span>    
+            
+
+    </div>
+    <span class="k">def</span> <span class="nf">_fs_walk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fs_root</span><span class="p">,</span> <span class="n">depth</span><span class="p">,</span> <span class="n">tag</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        General function to walk a file system &amp; yield up files which are pyc&#39;s</span>
+<span class="sd">        </span>
+<span class="sd">        Essentially walk &amp; selectively yield path, dirs, file everything that matches</span>
+<span class="sd">        criteria of .pyc or .pyo</span>
+<span class="sd">        </span>
+<span class="sd">        for .py just shortcut and dump</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+            
+        <span class="k">print</span> <span class="s">&quot;[+] Walking filesystem from </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">fs_root</span><span class="p">)</span>        
+        <span class="k">for</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">files</span><span class="p">)</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">fs_root</span><span class="p">):</span>
+            
+            <span class="k">for</span> <span class="n">pyx</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+                
+                <span class="c">##If the file is .py just dump it&#39;s contents - go straight to output</span>
+                <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">pyx</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s">&quot;.py&quot;</span><span class="p">:</span>
+                    <span class="n">f_py</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="n">pyx</span><span class="p">),</span> <span class="s">&quot;rb&quot;</span><span class="p">)</span>
+                    <span class="n">sc</span> <span class="o">=</span> <span class="n">f_py</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+                    <span class="n">f_py</span><span class="o">.</span><span class="n">close</span>
+                    
+                    <span class="c">##Do the output as specified</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_sourcecode</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_write_source</span><span class="p">(</span><span class="n">sc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">pyx</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span>
+                        
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_sourcecode</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_display_source</span><span class="p">(</span><span class="n">sc</span><span class="p">)</span>
+                    
+                <span class="c">##Decompile .pyc/.pyo </span>
+                <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">pyx</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s">&quot;.pyc&quot;</span> <span class="ow">or</span>\
+                   <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">pyx</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s">&quot;.pyo&quot;</span> <span class="p">:</span>
+                
+                    <span class="k">yield</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">pyx</span><span class="p">)</span>
+                    
+                
+                <span class="c">##If the file is not .py/.pyc./.pyo skip it</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">continue</span>
+    
+    <span class="k">def</span> <span class="nf">_display_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Print the source code to stdout</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">print</span> <span class="s">&quot;</span><span class="se">\n\n</span><span class="s">&quot;</span><span class="p">,</span><span class="n">source</span><span class="p">,</span><span class="s">&quot;</span><span class="se">\n\n</span><span class="s">&quot;</span>
+                    
+    
+    <span class="k">def</span> <span class="nf">_write_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sourcecode</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">tag</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Write the decompiled sourcecode to disk location</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dump_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dump_dir</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">path</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">))</span>
+            
+        <span class="c">#TODO - cleanup</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_quiet_makedir</span><span class="p">(</span><span class="n">dump_dir</span><span class="p">)</span>
+
+        <span class="n">location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dump_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+        
+        <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">location</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">ext</span> <span class="o">==</span> <span class="s">&quot;.pyc&quot;</span><span class="p">:</span>
+            <span class="n">location</span> <span class="o">=</span> <span class="n">location</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;.pyc&quot;</span><span class="p">,</span><span class="s">&quot;.py&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">ext</span> <span class="o">==</span> <span class="s">&quot;.pyo&quot;</span><span class="p">:</span>
+            <span class="n">location</span> <span class="o">=</span> <span class="n">location</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;.pyo&quot;</span><span class="p">,</span> <span class="s">&quot;.py&quot;</span><span class="p">)</span>
+ 
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">location</span><span class="p">,</span> <span class="s">&quot;wb&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">sourcecode</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">print</span> <span class="s">&quot;[+] Source code written to: </span><span class="si">%s</span><span class="s">&quot;</span><span class="o">%</span><span class="n">location</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;[-] Problem writing sourcecode to </span><span class="si">%s</span><span class="s"> [</span><span class="si">%s</span><span class="s">]&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">location</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+        
+    </div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">pyREtic v5 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Rich Smith.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.5.
+    </div>
+  </body>
+</html>
