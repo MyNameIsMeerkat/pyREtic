@@ -70,7 +70,7 @@ class pyREtic:
         try:
             os.makedirs(dirname)
         except Exception, err:
-            if "Errno 17" not in str(err):
+            if "Error 183" not in str(err):
                 print "[-] Problem creating output directory '%s': %s"%(dirname, err)
                 raise
             
