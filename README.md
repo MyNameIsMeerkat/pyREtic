@@ -53,7 +53,7 @@ I recently moved the project to a new home on GitHub due to renewed interest fro
 The features that will be added to pyREtic in future will reflect the development of my needs for dealing with reversing Python applications moving forward. If you have suggestions however let me know.
 
 
-##Technical Details
+## Technical Details
 For those interested more of the technicalities of how pyREtic does things can be found in the paper `pyREtic: In memory reverse engineering for obfuscated Python bytecode` which is in the `docs/` directory, and a presentation discussing it can be found at : 
 
 [http://prezi.com/kmyvgiobsl1d/pyretic-rich-smith-blackhatdefcon-2010]()
